@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Phone, User, Lock, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,35 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (localStorage.getItem('mockprep_user')) {
+      navigate('/');
+    }
+  }, [navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('mockprep_user', JSON.stringify({ email, name: 'Student' }));
-    toast.success('Logged in successfully!');
-    navigate('/');
+    
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('mockprep_user', JSON.stringify(data));
+        toast.success('Logged in successfully!');
+        navigate('/');
+      } else {
+        toast.error(data.msg || 'Invalid credentials');
+      }
+    } catch (error) {
+      toast.error('Network error. Is the backend running?');
+      console.error(error);
+    }
   };
 
   return (
@@ -99,16 +123,39 @@ export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleRegister = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (localStorage.getItem('mockprep_user')) {
+      navigate('/');
+    }
+  }, [navigate]);
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    localStorage.setItem(
-      'mockprep_user',
-      JSON.stringify({ email: form.email, name: form.name })
-    );
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          password: form.password
+        }),
+      });
 
-    toast.success('Account created successfully!');
-    navigate('/');
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('mockprep_user', JSON.stringify(data));
+        toast.success('Account created successfully!');
+        navigate('/');
+      } else {
+        toast.error(data.msg || 'Registration failed');
+      }
+    } catch (error) {
+      toast.error('Network error. Is the backend running?');
+      console.error(error);
+    }
   };
 
   const handleExamChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

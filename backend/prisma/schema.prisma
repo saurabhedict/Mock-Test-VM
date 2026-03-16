@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role          @default(STUDENT)
+  attempts     TestAttempt[]
+  createdAt    DateTime      @default(now())
+}
+
+model Test {
+  id              String        @id @default(uuid())
+  title           String
+  subject         String
+  durationMinutes Int
+  totalMarks      Int
+  isPublished     Boolean       @default(false)
+  questions       Question[]
+  attempts        TestAttempt[]
+  createdAt       DateTime      @default(now())
+}
+
+model Question {
+  id                 String   @id @default(uuid())
+  testId             String
+  test               Test     @relation(fields: [testId], references: [id])
+  questionText       String
+  options            Json     // Array of strings
+  correctAnswerIndex Int
+  explanation        String?
+}
+
+model TestAttempt {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  testId           String
+  test             Test     @relation(fields: [testId], references: [id])
+  score            Int
+  status           String   // "IN_PROGRESS" | "COMPLETED"
+  answersSubmitted Json?    // e.g., {"questionId": "index"}
+  startedAt        DateTime @default(now())
+  completedAt      DateTime?
+}
