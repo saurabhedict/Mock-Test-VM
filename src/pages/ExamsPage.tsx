@@ -26,7 +26,13 @@ export default function ExamsPage() {
                 className="group block rounded-xl border border-border bg-card p-6 shadow-card hover:shadow-card-hover transition-all hover:-translate-y-1"
               >
                 <div className="text-4xl mb-3">{exam.icon}</div>
-                <h2 className="text-xl font-display font-bold text-foreground group-hover:text-primary transition-colors">{exam.examName}</h2>
+                {/* <h2 className="text-xl font-display font-bold text-foreground group-hover:text-primary transition-colors">
+                  {exam.examName}
+                </h2> */}
+                <h2 className="text-lg font-bold line-clamp-1 text-foreground group-hover:text-primary transition-colors">
+                       {exam.shortName}
+                </h2>
+
                 <p className="mt-2 text-sm text-muted-foreground">{exam.description}</p>
                 <div className="mt-3 text-sm text-muted-foreground">
                   {exam.subjects.length} subjects • {exam.fullLengthTests.length} full-length test types

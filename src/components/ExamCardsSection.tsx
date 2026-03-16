@@ -26,9 +26,13 @@ export default function ExamCardsSection() {
                 className="group block rounded-xl border border-border bg-card p-6 shadow-card transition-all hover:shadow-card-hover hover:-translate-y-1"
               >
                 <div className="text-4xl mb-4">{exam.icon}</div>
-                <h3 className="text-xl font-display font-bold text-foreground group-hover:text-primary transition-colors">
+                {/* <h3 className="text-xl font-display font-bold text-foreground group-hover:text-primary transition-colors">
                   {exam.examName}
+                </h3> */}
+                <h3 className="text-lg font-bold line-clamp-1">
+                    {exam.shortName}
                 </h3>
+
                 <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{exam.description}</p>
                 <div className="mt-4 flex items-center gap-1 text-sm font-medium text-primary">
                   View Tests <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
