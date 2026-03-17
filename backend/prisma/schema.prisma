@@ -39,9 +39,11 @@ model Question {
   testId             String
   test               Test     @relation(fields: [testId], references: [id])
   questionText       String
-  options            Json     // Array of strings
+  questionImageUrl   String?
+  options            Json     // Array of objects: { "text": "...", "imageUrl": "..." }
   correctAnswerIndex Int
   explanation        String?
+  explanationImageUrl String?
 }
 
 model TestAttempt {

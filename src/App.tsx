@@ -11,6 +11,7 @@ import TestInterfacePage from "./pages/TestInterfacePage.tsx";
 import ResultsPage from "./pages/ResultsPage.tsx";
 import LoginPage, { RegisterPage } from "./pages/AuthPages.tsx";
 import ServicesPage from "./pages/ServicesPage.tsx";
+import ProtectedRoute from "./components/ProtectedRoute.tsx";
 
 const queryClient = new QueryClient();
 
@@ -22,18 +23,27 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/exams" element={<ExamsPage />} />
-          <Route path="/exams/:examId" element={<TestListPage />} />
-          <Route path="/test/:testId" element={<TestInterfacePage />} />
-          <Route path="/results/:testId" element={<ResultsPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="*" element={<NotFound />} />
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/exams" element={<ExamsPage />} />
+            <Route path="/exams/:examId" element={<TestListPage />} />
+            <Route path="/test/:testId" element={<TestInterfacePage />} />
+            <Route path="/results/:testId" element={<ResultsPage />} />
+            <Route path="/services" element={<ServicesPage />} />
+          </Route>
+
+          <Route path="*" element={<LogOutRedirect />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
+
+// Helper component to handle unknown routes or clean up
+const LogOutRedirect = () => {
+  return <NotFound />;
+};
 
 export default App;

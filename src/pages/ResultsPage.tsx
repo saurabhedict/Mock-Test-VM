@@ -185,20 +185,49 @@ export default function ResultsPage() {
                     </button>
 
                     {expandedQ === i && (
-                      <div className="mt-3 ml-9 space-y-2">
-                        {q.options.map((opt, oi) => (
-                          <div key={oi} className={`rounded-lg px-3 py-2 text-sm ${
-                            oi === q.correctAnswer ? 'bg-status-answered/10 text-foreground border border-status-answered/30' :
-                            oi === userAns && !isCorrect ? 'bg-status-not-answered/10 text-foreground border border-status-not-answered/30' :
-                            'bg-muted/50 text-muted-foreground'
-                          }`}>
-                            <span className="font-medium">{String.fromCharCode(65 + oi)}.</span> {opt}
-                            {oi === q.correctAnswer && <span className="ml-2 text-xs font-medium text-status-answered">✓ Correct</span>}
-                            {oi === userAns && !isCorrect && <span className="ml-2 text-xs font-medium text-status-not-answered">✗ Your answer</span>}
+                      <div className="mt-3 ml-9 space-y-3">
+                        {q.questionImage && (
+                          <div className="rounded-lg overflow-hidden border border-border bg-muted/30 max-w-md">
+                            <img src={q.questionImage} alt="Question" className="h-auto w-full object-contain" />
                           </div>
-                        ))}
-                        <div className="mt-2 rounded-lg bg-accent p-3 text-xs text-accent-foreground">
-                          <strong>Explanation:</strong> {q.explanation}
+                        )}
+                        
+                        <div className="space-y-2">
+                          {q.options.map((option, oi) => {
+                            const isString = typeof option === 'string';
+                            const optionText = isString ? option : option.text;
+                            const optionImage = isString ? null : option.imageUrl;
+
+                            return (
+                              <div key={oi} className={`rounded-lg px-3 py-2 text-sm ${
+                                oi === q.correctAnswer ? 'bg-status-answered/10 text-foreground border border-status-answered/30' :
+                                oi === userAns && !isCorrect ? 'bg-status-not-answered/10 text-foreground border border-status-not-answered/30' :
+                                'bg-muted/50 text-muted-foreground'
+                              }`}>
+                                <div className="flex flex-col gap-2">
+                                  <div>
+                                    <span className="font-medium">{String.fromCharCode(65 + oi)}.</span> {optionText}
+                                    {oi === q.correctAnswer && <span className="ml-2 text-xs font-medium text-status-answered">✓ Correct</span>}
+                                    {oi === userAns && !isCorrect && <span className="ml-2 text-xs font-medium text-status-not-answered">✗ Your answer</span>}
+                                  </div>
+                                  {optionImage && (
+                                    <div className="rounded border border-border/50 bg-white/50 p-1 w-fit">
+                                      <img src={optionImage} alt={`Option ${String.fromCharCode(65 + oi)}`} className="max-h-[100px] w-auto object-contain" />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        <div className="mt-2 rounded-lg bg-accent p-3 text-sm text-accent-foreground space-y-2">
+                          <div><strong>Explanation:</strong> {q.explanation}</div>
+                          {q.explanationImage && (
+                            <div className="rounded border border-border/50 bg-white/50 p-1 w-fit">
+                              <img src={q.explanationImage} alt="Explanation" className="max-h-[200px] w-auto object-contain" />
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
