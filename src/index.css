@@ -1,8 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -101,7 +100,12 @@
     @apply bg-background text-foreground font-body antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-display;
   }
 }
@@ -110,18 +114,23 @@
   .gradient-warm {
     background: var(--gradient-warm);
   }
+
   .gradient-hero {
     background: var(--gradient-hero);
   }
+
   .gradient-primary {
     background: var(--gradient-primary);
   }
+
   .shadow-soft {
     box-shadow: var(--shadow-soft);
   }
+
   .shadow-card {
     box-shadow: var(--shadow-card);
   }
+
   .shadow-card-hover {
     box-shadow: var(--shadow-card-hover);
   }

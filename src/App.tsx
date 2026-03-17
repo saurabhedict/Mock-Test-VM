@@ -12,6 +12,7 @@ import TestInterfacePage from "./pages/TestInterfacePage.tsx";
 import ResultsPage from "./pages/ResultsPage.tsx";
 import LoginPage, { RegisterPage } from "./pages/AuthPages.tsx";
 import ServicesPage from "./pages/ServicesPage.tsx";
+import PlanDetails from "./pages/PlanDetails.tsx";
 import ProfilePage from "./pages/ProfilePage.tsx";
 import VerifyOTPPage from "./pages/VerifyOTPPage.tsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.tsx";
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/services" element={<ServicesPage />} />
+          <Route path="/plan/:id" element={<PlanDetails />} />
 
           {/* Protected routes */}
           <Route path="/test/:testId" element={<ProtectedRoute><TestInterfacePage /></ProtectedRoute>} />
