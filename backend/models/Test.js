@@ -1,10 +1,15 @@
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 
-const TestSchema = new mongoose.Schema({
-  exam: String,
-  subject: String,
-  totalQuestions: Number,
-  duration: Number
-})
+const testSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    subject: { type: String, required: true },
+    durationMinutes: { type: Number, required: true },
+    totalMarks: { type: Number, required: true },
+    isPublished: { type: Boolean, default: false },
+    questions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model("Test", TestSchema)
+module.exports = mongoose.model("Test", testSchema);

@@ -8,6 +8,8 @@ const authRoutes = require("./routes/authRoutes");
 const testRoutes = require("./routes/testRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+
 
 const app = express();
 
@@ -18,7 +20,9 @@ connectDB();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:8080",
+  "http://localhost:8081",
   "http://localhost:3000",
+
   process.env.CLIENT_URL
 ].filter(Boolean);
 
@@ -47,11 +51,17 @@ app.use("/api/auth", authRoutes);
 app.use("/api/tests", testRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/admin", adminRoutes);
+
 
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ success: false, message: "Something went wrong on the server" });
+  console.error("GLOBAL ERROR:", err.stack);
+  res.status(err.status || 500).json({ 
+    success: false, 
+    message: err.message || "Something went wrong on the server" 
+  });
 });
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

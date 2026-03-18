@@ -1,14 +1,15 @@
-const { prisma } = require('../config/db');
-const Question = require('../models/Question');
+const User = require('../models/User');
+const Test = require('../models/Test');
+const TestAttempt = require('../models/TestAttempt');
 
 // @desc    Get dashboard stats
 // @route   GET /api/admin/stats
 // @access  Private/Admin
 exports.getDashboardStats = async (req, res) => {
   try {
-    const totalUsers = await prisma.user.count();
-    const totalTests = await prisma.test.count();
-    const totalAttempts = await prisma.testAttempt.count();
+    const totalUsers = await User.countDocuments();
+    const totalTests = await Test.countDocuments();
+    const totalAttempts = await TestAttempt.countDocuments();
 
     res.json({
       totalUsers,
@@ -16,6 +17,7 @@ exports.getDashboardStats = async (req, res) => {
       totalAttempts,
     });
   } catch (error) {
+    console.error("Dashboard Stats error:", error);
     res.status(500).json({ msg: 'Server Error' });
   }
 };
@@ -25,16 +27,20 @@ exports.getDashboardStats = async (req, res) => {
 // @access  Private/Admin
 exports.getAllTests = async (req, res) => {
   try {
-    const tests = await prisma.test.findMany({
-      include: {
-        _count: {
-          select: { questions: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json(tests);
+    const tests = await Test.find().populate({
+      path: 'questions',
+      select: '_id'
+    }).sort({ createdAt: -1 });
+    
+    // Convert to the response format expected (e.g. including a count)
+    const formattedTests = tests.map(test => ({
+      ...test.toObject(),
+      _count: { questions: test.questions.length }
+    }));
+    
+    res.json(formattedTests);
   } catch (error) {
+    console.error("GetAllTests error:", error);
     res.status(500).json({ msg: 'Server Error' });
   }
 };
@@ -43,18 +49,17 @@ exports.getAllTests = async (req, res) => {
 // @route   POST /api/admin/tests
 // @access  Private/Admin
 exports.createTest = async (req, res) => {
-  const { title, subject, durationMinutes, totalMarks } = req.body;
   try {
-    const test = await prisma.test.create({
-      data: {
-        title,
-        subject,
-        durationMinutes: parseInt(durationMinutes),
-        totalMarks: parseInt(totalMarks),
-      }
+    const { title, subject, durationMinutes, totalMarks } = req.body;
+    const test = await Test.create({
+      title,
+      subject,
+      durationMinutes: parseInt(durationMinutes),
+      totalMarks: parseInt(totalMarks),
     });
     res.status(201).json(test);
   } catch (error) {
+    console.error("CreateTest error:", error);
     res.status(500).json({ msg: 'Server Error' });
   }
 };
@@ -64,11 +69,10 @@ exports.createTest = async (req, res) => {
 // @access  Private/Admin
 exports.deleteTest = async (req, res) => {
   try {
-    await prisma.test.delete({
-      where: { id: req.params.id }
-    });
+    await Test.findByIdAndDelete(req.params.id);
     res.json({ msg: 'Test removed' });
   } catch (error) {
+    console.error("DeleteTest error:", error);
     res.status(500).json({ msg: 'Server Error' });
   }
 };
@@ -78,15 +82,21 @@ exports.deleteTest = async (req, res) => {
 // @access  Private/Admin
 exports.getTestAttempts = async (req, res) => {
   try {
-    const attempts = await prisma.testAttempt.findMany({
-      include: {
-        user: { select: { name: true, email: true } },
-        test: { select: { title: true } }
-      },
-      orderBy: { startedAt: 'desc' }
-    });
-    res.json(attempts);
+    const attempts = await TestAttempt.find()
+      .populate('userId', 'name email')
+      .populate('testId', 'title')
+      .sort({ startedAt: -1 });
+    
+    // Map to format compatible with frontend expectations
+    const formattedAttempts = attempts.map(attempt => ({
+      ...attempt.toObject(),
+      user: attempt.userId,
+      test: attempt.testId
+    }));
+
+    res.json(formattedAttempts);
   } catch (error) {
+    console.error("GetTestAttempts error:", error);
     res.status(500).json({ msg: 'Server Error' });
   }
 };

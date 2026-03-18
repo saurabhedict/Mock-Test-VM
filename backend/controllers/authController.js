@@ -43,9 +43,10 @@ exports.register = async (req, res) => {
     }
   } catch (error) {
     console.error("Register error:", error);
-    res.status(500).json({ success: false, message: "Server error during registration" });
+    res.status(500).json({ success: false, message: error.message || "Server error during registration" });
   }
 };
+
 
 exports.verifyOTP = async (req, res) => {
   try {

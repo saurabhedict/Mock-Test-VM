@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-const router = require("express").Router()
-const {createOrder} = require("../controllers/paymentController")
-
-router.post("/create-order",createOrder)
-
-module.exports = router
-=======
 const router = require("express").Router();
 const {
   createOrder,
@@ -14,7 +6,7 @@ const {
   myPurchases,
   webhook,
 } = require("../controllers/paymentController");
-const protect = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 
 router.post("/webhook", webhook);
 router.post("/create-order", protect, createOrder);
@@ -23,4 +15,3 @@ router.post("/failure", protect, paymentFailure);
 router.get("/my-purchases", protect, myPurchases);
 
 module.exports = router;
->>>>>>> origin/saurabh-with-milin

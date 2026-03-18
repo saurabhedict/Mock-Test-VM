@@ -18,6 +18,8 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.tsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.tsx";
 import MyPurchasesPage from "./pages/MyPurchasesPage.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
+import { AuthProvider } from "./context/AuthContext.tsx";
+
 
 const queryClient = new QueryClient();
 
@@ -27,28 +29,31 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/verify-otp" element={<VerifyOTPPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/exams" element={<ExamsPage />} />
-            <Route path="/exams/:examId" element={<TestListPage />} />
-            <Route path="/test/:testId" element={<TestInterfacePage />} />
-            <Route path="/results/:testId" element={<ResultsPage />} />
-            <Route path="/services" element={<ServicesPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/my-purchases" element={<MyPurchasesPage />} />
-          </Route>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/verify-otp" element={<VerifyOTPPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/exams" element={<ExamsPage />} />
+              <Route path="/exams/:examId" element={<TestListPage />} />
+              <Route path="/test/:testId" element={<TestInterfacePage />} />
+              <Route path="/results/:testId" element={<ResultsPage />} />
+              <Route path="/services" element={<ServicesPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/my-purchases" element={<MyPurchasesPage />} />
+            </Route>
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
+
     </TooltipProvider>
   </QueryClientProvider>
 );
