@@ -1,42 +1,21 @@
-const jwt = require('jsonwebtoken');
-const { prisma } = require('../config/db');
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
 const protect = async (req, res, next) => {
   let token;
-
-  // Check for token in cookies
-  token = req.cookies.jwt;
-
-  if (token) {
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
     try {
+      token = req.headers.authorization.split(" ")[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      req.user = await prisma.user.findUnique({
-        where: { id: decoded.id },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-        },
-      });
-
+      req.user = await User.findById(decoded.id).select("-password");
+      if (!req.user) return res.status(401).json({ success: false, message: "Not authorized — User not found" });
       next();
     } catch (error) {
-      console.error(error);
-      res.status(401).json({ msg: 'Not authorized, token failed' });
+      console.error("Auth error:", error);
+      res.status(401).json({ success: false, message: "Not authorized — token failed" });
     }
-  } else {
-    res.status(401).json({ msg: 'Not authorized, no token' });
   }
+  if (!token) return res.status(401).json({ success: false, message: "Not authorized — no token" });
 };
 
-const admin = (req, res, next) => {
-  if (req.user && req.user.role === 'ADMIN') {
-    next();
-  } else {
-    res.status(403).json({ msg: 'Not authorized as an admin' });
-  }
-};
-
-module.exports = { protect, admin };
+module.exports = protect;

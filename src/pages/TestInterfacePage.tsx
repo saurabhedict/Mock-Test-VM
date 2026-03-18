@@ -249,57 +249,29 @@ export default function TestInterfacePage() {
 
             <h3 className="text-lg font-medium text-foreground leading-relaxed mb-6">{currentQ.question}</h3>
 
-            {currentQ.questionImage && (
-              <div className="mb-6 rounded-xl overflow-hidden border border-border bg-muted/30">
-                <img 
-                  src={currentQ.questionImage} 
-                  alt="Question" 
-                  className="max-w-full h-auto object-contain mx-auto max-h-[400px]"
-                />
-              </div>
-            )}
-
             <div className="space-y-3">
-              {currentQ.options.map((option, i) => {
-                const isString = typeof option === 'string';
-                const optionText = isString ? option : option.text;
-                const optionImage = isString ? null : option.imageUrl;
-
-                return (
-                  <button
-                    key={i}
-                    onClick={() => selectOption(i)}
-                    className={`w-full text-left rounded-xl border-2 px-5 py-4 transition-all ${
+              {currentQ.options.map((option, i) => (
+                <button
+                  key={i}
+                  onClick={() => selectOption(i)}
+                  className={`w-full text-left rounded-xl border-2 px-5 py-4 transition-all ${
+                    state.answers[state.currentQuestion] === i
+                      ? 'border-primary bg-accent text-accent-foreground'
+                      : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-accent/50'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-3">
+                    <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
                       state.answers[state.currentQuestion] === i
-                        ? 'border-primary bg-accent text-accent-foreground'
-                        : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-accent/50'
-                    }`}
-                  >
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                          state.answers[state.currentQuestion] === i
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {String.fromCharCode(65 + i)}
-                        </span>
-                        <span className="text-sm">{optionText}</span>
-                      </div>
-                      
-                      {optionImage && (
-                        <div className="ml-10 rounded-lg overflow-hidden border border-border/50 bg-white/50 p-1">
-                          <img 
-                            src={optionImage} 
-                            alt={`Option ${String.fromCharCode(65 + i)}`} 
-                            className="max-h-[200px] w-auto object-contain"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {String.fromCharCode(65 + i)}
+                    </span>
+                    <span className="text-sm">{option}</span>
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
 

@@ -1,8 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -110,9 +110,13 @@
   .gradient-warm {
     background: var(--gradient-warm);
   }
-  .gradient-hero {
-    background: var(--gradient-hero);
-  }
+.gradient-hero {
+  background: var(--gradient-hero);
+}
+
+.dark .gradient-hero {
+  background: linear-gradient(160deg, hsl(20 15% 10%), hsl(24 30% 12%), hsl(20 15% 8%));
+}
   .gradient-primary {
     background: var(--gradient-primary);
   }
@@ -125,4 +129,10 @@
   .shadow-card-hover {
     box-shadow: var(--shadow-card-hover);
   }
+}
+
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }

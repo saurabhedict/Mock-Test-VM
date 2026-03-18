@@ -1,14 +1,12 @@
 // Question generation system for mock tests
 
 export interface Question {
-  questionId: number | string;
+  questionId: number;
   question: string;
-  questionImage?: string;
-  options: (string | { text: string; imageUrl?: string })[];
+  options: string[];
   correctAnswer: number; // 0-indexed
   subject: string;
   explanation: string;
-  explanationImage?: string;
 }
 
 // Generate dummy questions for a given subject and count
@@ -55,19 +53,6 @@ function generateSubjectQuestions(subject: string, count: number): Question[] {
 
   const bbaSampleQuestions: Record<string, Omit<Question, 'questionId' | 'subject'>[]> = {
     English: [
-      {
-        question: 'Solve the mathematical identity shown in the image below:',
-        questionImage: '/assets/demo_question.png',
-        options: [
-          { text: 'Euler\'s Identity', imageUrl: '/assets/demo_question.png' },
-          'Pythagorean Theorem',
-          'Newton\'s Second Law',
-          'Einstein\'s Relativity'
-        ],
-        correctAnswer: 0,
-        explanation: 'The image shows Euler\'s identity, which relates the five most important mathematical constants.',
-        explanationImage: '/assets/demo_question.png'
-      },
       {
         question: '"Don\'t put all your eggs in one basket" means:',
         options: ['Don\'t invest all your resources in one thing', 'Always carry multiple baskets', 'Be careful while shopping', 'Avoid eating too many eggs'],

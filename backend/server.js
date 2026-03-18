@@ -2,12 +2,12 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const { connectDB } = require("./config/db");
+const connectDB = require("./config/db");
 
 const authRoutes = require("./routes/authRoutes");
 const testRoutes = require("./routes/testRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
-// const paymentRoutes = require("./routes/paymentRoutes");
 
 const app = express();
 
@@ -15,7 +15,13 @@ const app = express();
 connectDB();
 
 // Middleware
-const allowedOrigins = ["http://localhost:8081", "http://localhost:5173", "http://localhost:8080"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:3000",
+  process.env.CLIENT_URL
+].filter(Boolean);
+
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
@@ -24,19 +30,30 @@ app.use(cors({
       callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
+// Payment Webhook (must be before express.json())
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/tests", testRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use("/api/upload", uploadRoutes);
-// app.use("/api/payments", paymentRoutes);
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ success: false, message: "Something went wrong on the server" });
+});
 
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

@@ -13,7 +13,7 @@ export default function HeroSection() {
   return (
 
 
-    <section className="gradient-hero relative overflow-hidden">
+   <section className="gradient-hero dark:bg-background relative overflow-hidden">
       <div className="container py-20 md:py-28">
         <div className="max-w-3xl mx-auto text-center">
           <motion.div
@@ -32,17 +32,9 @@ export default function HeroSection() {
             </span>
           </motion.div>
 
-          {/* <motion.h1
-            className="text-4xl md:text-6xl font-display font-bold text-foreground leading-tight"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            Practice Mock Tests for{' '}
-            <span className="text-primary">Competitive Exams</span>
-          </motion.h1> */}
+  
 
-          <motion.h1 className="text-4xl md:text-6xl font-display font-bold leading-tight">
+         <motion.h1 className="text-4xl md:text-6xl font-display font-bold leading-tight text-foreground dark:text-white">
                   {text1.split("").map((char, i) => (
                     <motion.span
                       key={i}
@@ -70,16 +62,6 @@ export default function HeroSection() {
 
 
 
-
-          {/* <motion.p
-            className="mt-6 text-lg text-muted-foreground max-w-xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            Real exam simulation with instant performance analysis. Prepare smarter with our professional test interface.
-          </motion.p> */}
-
               <motion.div
                 className="mt-6 text-lg max-w-xl mx-auto leading-relaxed text-center"
                 initial="hidden"
@@ -104,7 +86,7 @@ export default function HeroSection() {
                     duration: 0.4,
                     ease: "easeOut"
                   }}
-                  className="inline-block text-muted-foreground"
+                 className="inline-block text-muted-foreground dark:text-slate-300"
                 >
                   {char === " " ? "\u00A0" : char}
                 </motion.span>

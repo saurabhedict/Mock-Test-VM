@@ -1,15 +1,42 @@
-import { Navigate, Outlet } from 'react-router-dom';
+/**
+ * ProtectedRoute.tsx
+ *
+ * Wraps any route that requires authentication.
+ * - While auth is loading (restoring session on page refresh): shows a spinner
+ * - If not logged in: redirects to /login, preserving the page they tried to visit
+ * - If logged in: renders the page normally
+ *
+ * Usage in App.tsx:
+ *   <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+ */
 
-const ProtectedRoute = () => {
-  const user = localStorage.getItem('mockprep_user');
-  
-  if (!user) {
-    // If no user is logged in, redirect to the login page
-    return <Navigate to="/login" replace />;
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+
+interface Props {
+  children: React.ReactNode;
+}
+
+export default function ProtectedRoute({ children }: Props) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  // Show a centered spinner while we check the session (page refresh scenario)
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
-  // If user is logged in, render the child routes
-  return <Outlet />;
-};
+  // Not logged in — send to login, but remember where they wanted to go
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
 
-export default ProtectedRoute;
+  return <>{children}</>;
+}

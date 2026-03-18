@@ -1,14 +1,10 @@
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { services } from '@/data/services';
 import { toast } from 'sonner';
+import BuyButton from '@/components/BuyButton';
 
 export default function ServicesSection() {
-  const handleBuy = (serviceName: string) => {
-    toast.info(`Payment for "${serviceName}" will be available soon. Razorpay integration is in test mode.`);
-  };
-
   return (
     <section className="py-16 md:py-20">
       <div className="container">
@@ -16,7 +12,6 @@ export default function ServicesSection() {
           <h2 className="text-3xl font-display font-bold text-foreground">Premium Services & Counselling</h2>
           <p className="mt-3 text-muted-foreground">Get expert guidance for your exam journey</p>
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {services.map((service, i) => (
             <motion.div
@@ -47,13 +42,21 @@ export default function ServicesSection() {
                   </li>
                 ))}
               </ul>
-              <Button
-                className="w-full mt-6"
-                variant={service.popular ? 'default' : 'outline'}
-                onClick={() => handleBuy(service.serviceName)}
-              >
-                Buy Now
-              </Button>
+            <div className="mt-6 space-y-2">
+            <button
+                      type="button"
+                    onClick={() => toast.info("Details page coming soon!")}
+                  className="w-full py-2 rounded-lg border border-primary/40 text-xs font-medium text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary transition-colors duration-200"
+                >
+                 View Details
+             </button>
+                <BuyButton
+                  featureId={service.serviceId}
+                  featureName={service.serviceName}
+                  price={service.price}
+                  variant={service.popular ? 'default' : 'outline'}
+                />
+              </div>
             </motion.div>
           ))}
         </div>
