@@ -3,7 +3,7 @@ const {
   register, verifyOTP, resendOTP,
   forgotPassword, resetPassword,
   login, refreshToken, logout,
-  getMe, updateProfile, uploadPhoto,
+  getMe, updateProfile, uploadPhoto, updateSettings,
 } = require("../controllers/authController");
 const protect = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
@@ -18,6 +18,7 @@ router.post("/refresh-token", refreshToken);
 router.post("/logout", logout);
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
+router.put("/settings", protect, updateSettings);
 router.post("/upload-photo", protect, (req, res, next) => {
   upload.single("photo")(req, res, (err) => {
     if (err) {

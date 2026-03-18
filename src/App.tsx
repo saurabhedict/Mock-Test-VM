@@ -16,6 +16,7 @@ import ProfilePage from "./pages/ProfilePage.tsx";
 import VerifyOTPPage from "./pages/VerifyOTPPage.tsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.tsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.tsx";
+import MyPurchasesPage from "./pages/MyPurchasesPage.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
 
 const queryClient = new QueryClient();
@@ -27,7 +28,6 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Public routes */}
           <Route path="/" element={<Index />} />
           <Route path="/exams" element={<ExamsPage />} />
           <Route path="/exams/:examId" element={<TestListPage />} />
@@ -37,12 +37,10 @@ const App = () => (
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/services" element={<ServicesPage />} />
-
-          {/* Protected routes */}
           <Route path="/test/:testId" element={<ProtectedRoute><TestInterfacePage /></ProtectedRoute>} />
           <Route path="/results/:testId" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-
+          <Route path="/my-purchases" element={<ProtectedRoute><MyPurchasesPage /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

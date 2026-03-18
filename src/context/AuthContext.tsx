@@ -1,17 +1,22 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import api from "@/services/api";
-interface User { _id: string; name: string; email: string; phone?: string; examPref?: string; profilePhoto?: string; }
+
+interface Purchase { featureId: string; featureName: string; orderId: string; purchasedAt: string; }
+interface User {
+  _id: string; name: string; email: string; phone?: string;
+  examPref?: string; profilePhoto?: string; bio?: string;
+  streak?: number; lastStudyDate?: string; darkMode?: boolean;
+  purchases?: Purchase[];
+}
 interface AuthContextType {
   user: User | null; loading: boolean;
   login: (email: string, password: string) => Promise<{ needsVerification?: boolean; email?: string }>;
   register: (data: RegisterData) => Promise<{ email: string }>;
   loginWithTokens: (accessToken: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
-interface RegisterData {
-  name: string; email: string; password: string;
-  phone?: string; examPref?: string; otpMethod?: string;
-}
+interface RegisterData { name: string; email: string; password: string; phone?: string; examPref?: string; otpMethod?: string; }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -19,16 +24,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const restore = async () => {
-      const token = sessionStorage.getItem("accessToken");
-      if (!token) { setLoading(false); return; }
-      try { const { data } = await api.get("/auth/me"); setUser(data.user); }
-      catch { sessionStorage.removeItem("accessToken"); }
-      finally { setLoading(false); }
-    };
-    restore();
-  }, []);
+  const fetchUser = async () => {
+    const token = sessionStorage.getItem("accessToken");
+    if (!token) { setLoading(false); return; }
+    try { const { data } = await api.get("/auth/me"); setUser(data.user); }
+    catch { sessionStorage.removeItem("accessToken"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchUser(); }, []);
 
   const loginWithTokens = async (accessToken: string, userData: User) => {
     sessionStorage.setItem("accessToken", accessToken);
@@ -59,8 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async () => { await fetchUser(); };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, loginWithTokens, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, loginWithTokens, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

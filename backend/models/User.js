@@ -8,7 +8,20 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: [true, "Password is required"], minlength: [6, "Password must be at least 6 characters"], select: false },
     phone: { type: String, trim: true },
     examPref: { type: String, enum: ["mhtcet", "mah-bba-bca-cet", "jee", "neet", ""], default: "" },
-    profilePhoto: { type: String, default: "" }, // Cloudinary URL
+    profilePhoto: { type: String, default: "" },
+    bio: { type: String, default: "", maxlength: [200, "Bio cannot exceed 200 characters"] },
+    examDate: { type: Date, default: null },
+    darkMode: { type: Boolean, default: false },
+    streak: { type: Number, default: 0 },
+    lastStudyDate: { type: Date, default: null },
+    purchases: [
+      {
+        featureId: String,
+        featureName: String,
+        orderId: String,
+        purchasedAt: { type: Date, default: Date.now },
+      },
+    ],
     isVerified: { type: Boolean, default: false },
     otp: { type: String, select: false },
     otpExpiry: { type: Date, select: false },
