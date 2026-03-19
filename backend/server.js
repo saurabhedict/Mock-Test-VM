@@ -7,6 +7,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const testRoutes = require("./routes/testRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const couponRoutes = require("./routes/couponRoutes");
 
 const app = express();
 connectDB();
@@ -26,6 +27,8 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/tests", testRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/coupons", couponRoutes);
+
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

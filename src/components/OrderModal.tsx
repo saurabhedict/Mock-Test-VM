@@ -1,31 +1,75 @@
-import { X, ShoppingCart, Tag } from "lucide-react";
+import { useState } from "react";
+import { X, ShoppingCart, Tag, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import api from "@/services/api";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onProceed: () => void;
+  onProceed: (finalPrice: number, couponCode?: string) => void;
+  featureId: string;
   featureName: string;
   price: number;
   loading: boolean;
 }
 
-export default function OrderModal({ open, onClose, onProceed, featureName, price, loading }: Props) {
+export default function OrderModal({ open, onClose, onProceed, featureId, featureName, price, loading }: Props) {
+  const [couponCode, setCouponCode] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountAmount: number;
+    finalPrice: number;
+  } | null>(null);
+
   if (!open) return null;
 
-  const gst = Math.round(price * 0.18);
-  const total = price;
   const basePrice = Math.round(price / 1.18);
-  const discount = 0;
+  const gst = price - basePrice;
+  const discountAmount = appliedCoupon?.discountAmount || 0;
+  const finalTotal = appliedCoupon?.finalPrice || price;
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast.error("Please enter a coupon code");
+      return;
+    }
+    setCouponLoading(true);
+    try {
+      const { data } = await api.post("/coupons/validate", {
+        code: couponCode.trim(),
+        featureId,
+        price,
+      });
+      if (data.success) {
+        setAppliedCoupon(data.coupon);
+        toast.success(
+          `Coupon applied! You save ₹${data.coupon.discountAmount.toLocaleString()}`
+        );
+      }
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Invalid coupon code";
+      toast.error(msg);
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+  };
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
         onClick={onClose}
       >
-        {/* Modal */}
         <div
           className="relative w-full max-w-sm bg-card rounded-2xl shadow-2xl border border-border overflow-hidden"
           onClick={(e) => e.stopPropagation()}
@@ -63,16 +107,40 @@ export default function OrderModal({ open, onClose, onProceed, featureName, pric
                 <Tag className="h-3.5 w-3.5 text-primary" />
                 Have a discount coupon?
               </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Enter Code Here"
-                  className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                <Button size="sm" variant="outline" className="px-4">
-                  Apply
-                </Button>
-              </div>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                  <span className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {appliedCoupon.code} applied!
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="text-xs text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                    placeholder="Enter Code Here"
+                    className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring uppercase"
+                  />
+                 <Button
+                   size="sm"
+                   className="px-4 bg-primary text-primary-foreground hover:bg-primary/90"
+                   onClick={handleApplyCoupon}
+                   disabled={couponLoading}
+>
+                   {couponLoading ? "..." : "Apply"}
+                 </Button>
+                </div>
+              )}
             </div>
 
             {/* Price Breakdown */}
@@ -85,16 +153,27 @@ export default function OrderModal({ open, onClose, onProceed, featureName, pric
                 <span className="text-muted-foreground">GST (18%)</span>
                 <span className="text-foreground">₹ {gst.toLocaleString()}</span>
               </div>
-              {discount > 0 && (
+              {discountAmount > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Discount</span>
-                  <span className="text-green-600">- ₹ {discount.toLocaleString()}</span>
+                  <span className="text-green-600 font-medium">
+                    - ₹ {discountAmount.toLocaleString()}
+                  </span>
                 </div>
               )}
               <div className="h-px bg-border" />
               <div className="flex items-center justify-between">
                 <span className="font-bold text-foreground">Total</span>
-                <span className="font-bold text-lg text-foreground">₹ {total.toLocaleString()}</span>
+                <div className="text-right">
+                  {discountAmount > 0 && (
+                    <span className="text-xs text-muted-foreground line-through mr-2">
+                      ₹{price.toLocaleString()}
+                    </span>
+                  )}
+                  <span className="font-bold text-lg text-foreground">
+                    ₹ {finalTotal.toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -103,7 +182,7 @@ export default function OrderModal({ open, onClose, onProceed, featureName, pric
           <div className="px-6 pb-6">
             <Button
               className="w-full h-11 text-base font-semibold"
-              onClick={onProceed}
+              onClick={() => onProceed(finalTotal, appliedCoupon?.code)}
               disabled={loading}
             >
               {loading ? (
