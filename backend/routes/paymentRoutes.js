@@ -6,7 +6,7 @@ const {
   myPurchases,
   webhook,
 } = require("../controllers/paymentController");
-const protect = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 
 router.post("/webhook", webhook);
 router.post("/create-order", protect, createOrder);

@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { upload } = require('../utils/cloudinary');
+const upload = require('../middleware/uploadMiddleware');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 // @desc    Upload an image

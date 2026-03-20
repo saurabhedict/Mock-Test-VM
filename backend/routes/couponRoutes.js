@@ -5,7 +5,7 @@ const {
   listCoupons,
   deactivateCoupon,
 } = require("../controllers/couponController");
-const protect = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 
 router.post("/validate", protect, validateCoupon);
 router.post("/create", createCoupon);

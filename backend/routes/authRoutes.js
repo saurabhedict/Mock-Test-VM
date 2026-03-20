@@ -5,7 +5,7 @@ const {
   login, refreshToken, logout,
   getMe, updateProfile, uploadPhoto, updateSettings,
 } = require("../controllers/authController");
-const protect = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 
 router.post("/register", register);
