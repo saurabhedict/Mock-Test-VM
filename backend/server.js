@@ -1,3 +1,4 @@
+console.log("SERVER LOG: Starting server.js");
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -13,8 +14,9 @@ const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 
-// Connect to Database
+console.log("SERVER LOG: Attempting DB connection...");
 connectDB();
+console.log("SERVER LOG: App setup continuing...");
 
 // Middleware
 const allowedOrigins = [
@@ -27,13 +29,7 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: true, // This allow all origins from where the request is made on Vercel
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-admin-key"],
