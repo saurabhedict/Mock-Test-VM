@@ -12,6 +12,7 @@ import TestInterfacePage from "./pages/TestInterfacePage.tsx";
 import ResultsPage from "./pages/ResultsPage.tsx";
 import LoginPage, { RegisterPage } from "./pages/AuthPages.tsx";
 import ServicesPage from "./pages/ServicesPage.tsx";
+import PlanDetails from "./pages/PlanDetails.tsx";
 import ProfilePage from "./pages/ProfilePage.tsx";
 import VerifyOTPPage from "./pages/VerifyOTPPage.tsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.tsx";
@@ -19,7 +20,6 @@ import ResetPasswordPage from "./pages/ResetPasswordPage.tsx";
 import MyPurchasesPage from "./pages/MyPurchasesPage.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
-
 
 const queryClient = new QueryClient();
 
@@ -45,6 +45,7 @@ const App = () => (
               <Route path="/test/:testId" element={<TestInterfacePage />} />
               <Route path="/results/:testId" element={<ResultsPage />} />
               <Route path="/services" element={<ServicesPage />} />
+              <Route path="/plan/:id" element={<PlanDetails />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/my-purchases" element={<MyPurchasesPage />} />
             </Route>
@@ -53,7 +54,6 @@ const App = () => (
           </Routes>
         </AuthProvider>
       </BrowserRouter>
-
     </TooltipProvider>
   </QueryClientProvider>
 );

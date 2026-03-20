@@ -46,20 +46,25 @@ export default function BuyButton({
     setModalOpen(true);
   };
 
-  const handleProceed = () => {
-    initiatePayment({
-      featureId,
-      featureName,
-      onSuccess: () => {
-        setModalOpen(false);
-        navigate("/my-purchases");
-      },
-      onFailure: (reason) => {
-        if (reason !== "cancelled") {
-          console.error("Payment failed:", reason);
-        }
-      },
-    });
+  const handleProceed = (finalPrice: number, couponCode?: string) => {
+    setModalOpen(false);
+    // Add a small delay for the modal to close smoothly before opening Razorpay
+    setTimeout(() => {
+      initiatePayment({
+        featureId,
+        featureName,
+        finalPrice,
+        couponCode,
+        onSuccess: () => {
+          navigate("/my-purchases");
+        },
+        onFailure: (reason) => {
+          if (reason !== "cancelled") {
+            console.error("Payment failed:", reason);
+          }
+        },
+      });
+    }, 300);
   };
 
   if (alreadyPurchased) {
@@ -88,6 +93,7 @@ export default function BuyButton({
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onProceed={handleProceed}
+        featureId={featureId}
         featureName={featureName}
         price={price}
         loading={loading}

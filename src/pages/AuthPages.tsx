@@ -30,8 +30,8 @@ export default function LoginPage() {
       }
       toast.success("Logged in successfully!");
       navigate(from, { replace: true });
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Login failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Login failed");
     } finally { setIsLoading(false); }
   };
 
@@ -96,8 +96,8 @@ export function RegisterPage() {
       const { email } = await register({ ...form, otpMethod });
       toast.success(otpMethod === "sms" ? "OTP sent to your phone!" : "OTP sent to your email!");
       navigate("/verify-otp", { state: { email, otpMethod } });
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Registration failed");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Registration failed");
     } finally { setIsLoading(false); }
   };
 

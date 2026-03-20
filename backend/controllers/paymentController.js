@@ -4,10 +4,17 @@ const Payment = require("../models/Payment");
 const User = require("../models/User");
 
 const FEATURES = {
+  // Original services
   "counselling": { name: "Complete Counselling Program", price: 4999 },
   "premium-tests": { name: "Premium Mock Test Series", price: 1499 },
   "mentorship": { name: "Personal Mentorship", price: 2999 },
   "admission-guide": { name: "College Admission Guidance", price: 1999 },
+
+  // New plans
+  "foundation": { name: "Foundation Plan", price: 999 },
+  "practice-pro": { name: "Practice Pro Plan", price: 1999 },
+  "admission-expert": { name: "Admission Expert Plan", price: 3499 },
+  "elite": { name: "Elite Strategist Plan", price: 5999 },
 };
 
 const getRazorpay = () => {
@@ -22,12 +29,15 @@ const getRazorpay = () => {
 
 exports.createOrder = async (req, res) => {
   try {
-    const { featureId } = req.body;
+    const { featureId, finalPrice, couponCode } = req.body;
     const userId = req.user.id;
+
+    console.log("createOrder called with:", { featureId, finalPrice, couponCode });
 
     const feature = FEATURES[featureId];
     if (!feature) {
-      return res.status(400).json({ success: false, message: "Invalid feature selected" });
+      console.log("Available features:", Object.keys(FEATURES));
+      return res.status(400).json({ success: false, message: `Invalid feature selected: "${featureId}"` });
     }
 
     const user = await User.findById(userId);
@@ -37,11 +47,15 @@ exports.createOrder = async (req, res) => {
     }
 
     const razorpay = getRazorpay();
+
+    // Use finalPrice if provided (e.g., after coupon application), otherwise use base feature price
+    const amountToCharge = (finalPrice !== undefined && finalPrice < feature.price) ? finalPrice : feature.price;
+
     const order = await razorpay.orders.create({
-      amount: feature.price * 100,
+      amount: Math.round(amountToCharge * 100),
       currency: "INR",
       receipt: `rcpt_${Date.now()}`,
-      notes: { userId, featureId, featureName: feature.name },
+      notes: { userId, featureId, featureName: feature.name, couponCode: couponCode || "" },
     });
 
     await Payment.create({
@@ -49,14 +63,15 @@ exports.createOrder = async (req, res) => {
       orderId: order.id,
       featureId,
       featureName: feature.name,
-      amount: feature.price,
+      amount: amountToCharge,
+      couponCode: couponCode || null,
       status: "pending",
     });
 
     res.json({
       success: true,
       order: { id: order.id, amount: order.amount, currency: order.currency },
-      feature: { id: featureId, name: feature.name, price: feature.price },
+      feature: { id: featureId, name: feature.name, price: feature.price, finalPrice: amountToCharge },
       key: process.env.RAZORPAY_KEY,
     });
   } catch (error) {

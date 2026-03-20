@@ -46,8 +46,6 @@ exports.register = async (req, res) => {
     res.status(500).json({ success: false, message: error.message || "Server error during registration" });
   }
 };
-
-
 exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -227,6 +225,8 @@ exports.updateProfile = async (req, res) => {
 
 exports.uploadPhoto = async (req, res) => {
   try {
+    console.log("Upload request received");
+    console.log("File:", req.file);
     if (!req.file) return res.status(400).json({ success: false, message: "No image file provided" });
     const photoUrl = req.file.path;
     const user = await User.findByIdAndUpdate(req.user.id, { profilePhoto: photoUrl }, { new: true });

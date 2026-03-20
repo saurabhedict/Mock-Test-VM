@@ -7,9 +7,9 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const testRoutes = require("./routes/testRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const couponRoutes = require("./routes/couponRoutes"); // Added from coupon branch
 const uploadRoutes = require("./routes/uploadRoutes");
 const adminRoutes = require("./routes/adminRoutes");
-
 
 const app = express();
 
@@ -22,7 +22,7 @@ const allowedOrigins = [
   "http://localhost:8080",
   "http://localhost:8081",
   "http://localhost:3000",
-
+  "http://localhost:4173",
   process.env.CLIENT_URL
 ].filter(Boolean);
 
@@ -50,9 +50,9 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/tests", testRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/coupons", couponRoutes); // Added from coupon branch
 app.use("/api/upload", uploadRoutes);
 app.use("/api/admin", adminRoutes);
-
 
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err.stack);
@@ -61,7 +61,6 @@ app.use((err, req, res, next) => {
     message: err.message || "Something went wrong on the server" 
   });
 });
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

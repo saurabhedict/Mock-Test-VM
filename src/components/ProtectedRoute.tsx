@@ -1,15 +1,3 @@
-/**
- * ProtectedRoute.tsx
- *
- * Wraps any route that requires authentication.
- * - While auth is loading (restoring session on page refresh): shows a spinner
- * - If not logged in: redirects to /login, preserving the page they tried to visit
- * - If logged in: renders the page normally
- *
- * Usage in App.tsx:
- *   <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
- */
-
 import { Navigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 
@@ -18,7 +6,6 @@ interface Props {
 }
 
 export default function ProtectedRoute({ children }: Props) {
-
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -41,4 +28,3 @@ export default function ProtectedRoute({ children }: Props) {
 
   return children ? <>{children}</> : <Outlet />;
 }
-
