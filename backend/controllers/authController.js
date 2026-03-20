@@ -43,10 +43,9 @@ exports.register = async (req, res) => {
     }
   } catch (error) {
     console.error("Register error:", error);
-    res.status(500).json({ success: false, message: "Server error during registration" });
+    res.status(500).json({ success: false, message: error.message || "Server error during registration" });
   }
 };
-
 exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -217,7 +216,7 @@ exports.updateProfile = async (req, res) => {
     if (req.body.profilePhoto !== undefined) updates.profilePhoto = req.body.profilePhoto;
     const user = await User.findByIdAndUpdate(req.user.id, { $set: updates }, { new: true, runValidators: true });
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
-res.json({ success: true, message: "Profile updated", user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, examPref: user.examPref, bio: user.bio, profilePhoto: user.profilePhoto } });
+    res.json({ success: true, message: "Profile updated", user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, examPref: user.examPref, bio: user.bio, profilePhoto: user.profilePhoto } });
   } catch (error) {
     console.error("UpdateProfile error:", error);
     res.status(500).json({ success: false, message: "Server error updating profile" });

@@ -10,6 +10,7 @@ interface PaymentOptions {
   onSuccess?: (data: PaymentSuccess) => void;
   onFailure?: (reason: string) => void;
 }
+
 interface PaymentSuccess {
   orderId: string;
   paymentId: string;
@@ -34,7 +35,9 @@ const loadRazorpayScript = (): Promise<boolean> => {
 
 export function useRazorpay() {
   const [loading, setLoading] = useState(false);
-const initiatePayment = async ({ featureId, featureName, finalPrice, couponCode, onSuccess, onFailure }: PaymentOptions) => {
+
+  const initiatePayment = async ({ featureId, featureName, finalPrice, couponCode, onSuccess, onFailure }: PaymentOptions) => {
+    setLoading(true);
     try {
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
@@ -43,7 +46,7 @@ const initiatePayment = async ({ featureId, featureName, finalPrice, couponCode,
         return;
       }
 
-const { data } = await api.post("/payments/create-order", { featureId, finalPrice, couponCode });
+      const { data } = await api.post("/payments/create-order", { featureId, finalPrice, couponCode });
       if (!data.success) {
         toast.error(data.message || "Failed to create order");
         setLoading(false);

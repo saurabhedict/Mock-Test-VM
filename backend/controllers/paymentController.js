@@ -31,10 +31,8 @@ exports.createOrder = async (req, res) => {
   try {
     const { featureId, finalPrice, couponCode } = req.body;
     const userId = req.user.id;
-    console.log("createOrder:", { featureId, finalPrice, couponCode });
 
-    console.log("createOrder called with featureId:", featureId);
-    console.log("req.body:", req.body);
+    console.log("createOrder called with:", { featureId, finalPrice, couponCode });
 
     const feature = FEATURES[featureId];
     if (!feature) {
@@ -47,31 +45,33 @@ exports.createOrder = async (req, res) => {
     if (alreadyPurchased) {
       return res.status(400).json({ success: false, message: "You have already purchased this feature" });
     }
-const razorpay = getRazorpay();
 
-// Use finalPrice from frontend if coupon was applied, otherwise use feature price
-const amountToCharge = finalPrice && finalPrice < feature.price ? finalPrice : feature.price;
+    const razorpay = getRazorpay();
 
-const order = await razorpay.orders.create({
-  amount: amountToCharge * 100,
-  currency: "INR",
-  receipt: `rcpt_${Date.now()}`,
-  notes: { userId, featureId, featureName: feature.name },
-});
+    // Use finalPrice if provided (e.g., after coupon application), otherwise use base feature price
+    const amountToCharge = (finalPrice !== undefined && finalPrice < feature.price) ? finalPrice : feature.price;
 
- await Payment.create({
-  userId,
-  orderId: order.id,
-  featureId,
-  featureName: feature.name,
-  amount: amountToCharge,
-  status: "pending",
-});
+    const order = await razorpay.orders.create({
+      amount: Math.round(amountToCharge * 100),
+      currency: "INR",
+      receipt: `rcpt_${Date.now()}`,
+      notes: { userId, featureId, featureName: feature.name, couponCode: couponCode || "" },
+    });
+
+    await Payment.create({
+      userId,
+      orderId: order.id,
+      featureId,
+      featureName: feature.name,
+      amount: amountToCharge,
+      couponCode: couponCode || null,
+      status: "pending",
+    });
 
     res.json({
       success: true,
       order: { id: order.id, amount: order.amount, currency: order.currency },
-      feature: { id: featureId, name: feature.name, price: feature.price },
+      feature: { id: featureId, name: feature.name, price: feature.price, finalPrice: amountToCharge },
       key: process.env.RAZORPAY_KEY,
     });
   } catch (error) {

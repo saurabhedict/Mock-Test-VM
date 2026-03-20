@@ -42,11 +42,13 @@ export default function BuyButton({
       toast.info("You have already purchased this feature!");
       return;
     }
+    // Open order modal first
     setModalOpen(true);
   };
 
   const handleProceed = (finalPrice: number, couponCode?: string) => {
     setModalOpen(false);
+    // Add a small delay for the modal to close smoothly before opening Razorpay
     setTimeout(() => {
       initiatePayment({
         featureId,
