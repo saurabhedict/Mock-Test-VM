@@ -45,6 +45,10 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    couponCode: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

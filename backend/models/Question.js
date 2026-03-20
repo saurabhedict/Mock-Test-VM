@@ -4,10 +4,17 @@ const QuestionSchema = new mongoose.Schema({
   exam: String,
   subject: String,
   question: String,
-  options: [String],
+  questionImage: String, // URL from Cloudinary
+  options: [
+    {
+      text: String,
+      imageUrl: String,
+    },
+  ],
   correctAnswer: Number,
   explanation: String,
-  difficulty: String
-})
+  explanationImage: String,
+  difficulty: String,
+});
 
 module.exports = mongoose.model("Question", QuestionSchema)
