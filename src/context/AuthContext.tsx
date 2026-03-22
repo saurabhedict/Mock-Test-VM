@@ -58,11 +58,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { email: data.email };
   };
 
-  const logout = async () => {
-    try { await api.post("/auth/logout"); } catch { }
-    sessionStorage.removeItem("accessToken");
-    setUser(null);
-  };
+const logout = async () => {
+  try { await api.post("/auth/logout"); } catch { }
+  sessionStorage.removeItem("accessToken");
+  // Clear all test results from localStorage on logout
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith("result_") || k.startsWith("test_"))
+    .forEach((k) => localStorage.removeItem(k));
+  setUser(null);
+};
 
   const refreshUser = async () => { await fetchUser(); };
 

@@ -145,19 +145,43 @@ export default function TestInterfacePage() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [loading]);
 
-  const handleSubmit = useCallback(() => {
-    if (!state) return;
-    localStorage.removeItem(`test_${testId}`);
-    const resultData = {
+ const handleSubmit = useCallback(async () => {
+  if (!state) return;
+
+  const timeTaken = (testInfo?.duration || 60) * 60 - timeLeft;
+
+  // Calculate score
+  let score = 0;
+  questions.forEach((q: any, i: number) => {
+    if (state.answers[i] === q.correctAnswer) score++;
+  });
+
+  // Save to localStorage for ResultsPage display
+  localStorage.removeItem(`test_${testId}`);
+  const resultData = {
+    testId,
+    answers: state.answers,
+    questions,
+    timeTaken,
+  };
+  localStorage.setItem(`result_${testId}`, JSON.stringify(resultData));
+
+  // Save to backend so performance stats update
+  try {
+    await api.post("/tests/submit", {
       testId,
       answers: state.answers,
-      questions,
-      timeTaken: (testInfo?.duration || 60) * 60 - timeLeft,
-    };
-    localStorage.setItem(`result_${testId}`, JSON.stringify(resultData));
-    if (document.fullscreenElement) document.exitFullscreen?.();
-    navigate(`/results/${testId}`);
-  }, [state, timeLeft, testId, questions, navigate, testInfo]);
+      score,
+      totalQuestions: questions.length,
+      timeTaken,
+    });
+  } catch (err) {
+    console.error("Failed to save attempt to DB:", err);
+  }
+
+  if (document.fullscreenElement) document.exitFullscreen?.();
+  navigate(`/results/${testId}`);
+}, [state, timeLeft, testId, questions, navigate, testInfo]);
 
   const selectOption = (optionIndex: number) => {
     setState(prev => prev ? ({

@@ -97,12 +97,16 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<"main" | "notifications">("main");
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
 
-  // ── Real performance stats ──────────────────────────────
+  // ── Real performance stats — refetch every time sidebar opens ───
   const [perfStats, setPerfStats] = useState({ totalTests: 0, avgAccuracy: 0, purchaseCount: 0 });
   const [perfLoading, setPerfLoading] = useState(false);
 
   useEffect(() => {
     if (!open || !user) return;
+
+    // Reset to zero first so user sees fresh load each time
+    setPerfStats({ totalTests: 0, avgAccuracy: 0, purchaseCount: 0 });
+
     const fetchStats = async () => {
       setPerfLoading(true);
       try {
@@ -123,6 +127,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
         const purchaseCount = user?.purchases?.length || 0;
         setPerfStats({ totalTests, avgAccuracy, purchaseCount });
       } catch {
+        // fallback: localStorage for static tests
         const testResults = Object.keys(localStorage)
           .filter((k) => k.startsWith("result_"))
           .map((k) => {
@@ -151,8 +156,9 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
         setPerfLoading(false);
       }
     };
+
     fetchStats();
-  }, [open, user]);
+  }, [open, user]); // runs every time sidebar opens
   // ────────────────────────────────────────────────────────
 
   const streak = user?.streak || 0;
