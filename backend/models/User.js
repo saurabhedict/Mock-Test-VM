@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema(
     gender: String,
     state: String,
     city: String,
+    role: { type: String, enum: ["student", "admin"], default: "student" },
   },
   { timestamps: true }
 );

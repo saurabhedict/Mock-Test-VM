@@ -19,7 +19,14 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.tsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.tsx";
 import MyPurchasesPage from "./pages/MyPurchasesPage.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
+import AdminRoute from "./components/AdminRoute.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
+
+// Admin Imports
+import AdminDashboard from "./pages/Admin/Dashboard.tsx";
+import TestManager from "./pages/Admin/TestManager.tsx";
+import QuestionEditor from "./pages/Admin/QuestionEditor.tsx";
+import Monitoring from "./pages/Admin/Monitoring.tsx";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +55,14 @@ const App = () => (
               <Route path="/plan/:id" element={<PlanDetails />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/my-purchases" element={<MyPurchasesPage />} />
+            </Route>
+
+            {/* Admin Routes */}
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/tests" element={<TestManager />} />
+              <Route path="/admin/tests/:testId/questions" element={<QuestionEditor />} />
+              <Route path="/admin/monitoring" element={<Monitoring />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

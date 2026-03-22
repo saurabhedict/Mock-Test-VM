@@ -64,7 +64,7 @@ exports.verifyOTP = async (req, res) => {
 
     res.json({
       success: true, message: "Email verified! Welcome to Vidyarthi Mitra.", accessToken,
-      user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, examPref: user.examPref, purchases: user.purchases },
+      user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, examPref: user.examPref, purchases: user.purchases, role: user.role },
     });
   } catch (error) {
     console.error("VerifyOTP error:", error);
@@ -145,7 +145,7 @@ exports.login = async (req, res) => {
     setRefreshTokenCookie(res, refreshToken);
     res.json({
       success: true, message: "Logged in successfully", accessToken,
-      user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, examPref: user.examPref, profilePhoto: user.profilePhoto, bio: user.bio, streak: user.streak, darkMode: user.darkMode, purchases: user.purchases },
+      user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, examPref: user.examPref, profilePhoto: user.profilePhoto, bio: user.bio, streak: user.streak, darkMode: user.darkMode, purchases: user.purchases, role: user.role },
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -197,6 +197,7 @@ exports.getMe = async (req, res) => {
         streak: user.streak, lastStudyDate: user.lastStudyDate,
         darkMode: user.darkMode, purchases: user.purchases,
         profileCompleted: user.profileCompleted, createdAt: user.createdAt,
+        role: user.role,
       },
     });
   } catch (error) {

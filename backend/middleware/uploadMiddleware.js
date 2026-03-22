@@ -5,9 +5,12 @@ const cloudinary = require("../utils/cloudinary");
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: "vidyarthi-mitra/profiles",
+    folder: "vidyarthi-mitra",
     format: "jpg",
-    public_id: (req) => `user_${req.user.id}_${Date.now()}`,
+    public_id: (req) => {
+      const userId = req.user?._id || req.user?.id || 'anonymous';
+      return `img_${userId}_${Date.now()}`;
+    },
   },
 });
 

@@ -58,6 +58,18 @@ export default function Header() {
                 {item.label}
               </Link>
             ))}
+            {user?.role === 'admin' && (
+              <Link
+                to="/admin"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  location.pathname.startsWith("/admin")
+                    ? "bg-primary/10 text-primary"
+                    : "text-primary font-bold hover:bg-primary/5"
+                }`}
+              >
+                Admin Portal
+              </Link>
+            )}
           </nav>
 
           {/* Desktop Right */}

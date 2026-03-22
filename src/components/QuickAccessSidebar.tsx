@@ -338,6 +338,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 </div>
                 <div className="space-y-1">
                   {[
+                    ...(user?.role === 'admin' ? [{ label: "Admin Portal", path: "/admin", icon: Zap }] : []),
                     { label: "View All Results", path: "/exams", icon: BarChart3 },
                     { label: "My Purchases", path: "/my-purchases", icon: ShoppingBag },
                     { label: "My Profile", path: "/profile", icon: Target },

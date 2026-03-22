@@ -5,7 +5,15 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import type { Question } from '@/data/questions';
+interface Question {
+  id: string;
+  question: string;
+  questionImage?: string;
+  options: any[];
+  correctAnswer: number;
+  subject: string;
+  explanation: string;
+}
 
 interface ResultData {
   testId: string;
@@ -178,7 +186,10 @@ export default function ResultsPage() {
                           }`}>
                             {i + 1}
                           </span>
-                          <span className="text-sm text-foreground">{q.question}</span>
+                          <div className="space-y-2">
+                             <span className="text-sm text-foreground">{q.question}</span>
+                             {q.questionImage && <img src={q.questionImage} alt="Q" className="max-h-40 rounded border shadow-sm" />}
+                          </div>
                         </div>
                         {expandedQ === i ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
                       </div>
@@ -186,17 +197,27 @@ export default function ResultsPage() {
 
                     {expandedQ === i && (
                       <div className="mt-3 ml-9 space-y-2">
-                        {q.options.map((opt, oi) => (
-                          <div key={oi} className={`rounded-lg px-3 py-2 text-sm ${
-                            oi === q.correctAnswer ? 'bg-status-answered/10 text-foreground border border-status-answered/30' :
-                            oi === userAns && !isCorrect ? 'bg-status-not-answered/10 text-foreground border border-status-not-answered/30' :
-                            'bg-muted/50 text-muted-foreground'
-                          }`}>
-                            <span className="font-medium">{String.fromCharCode(65 + oi)}.</span> {opt}
-                            {oi === q.correctAnswer && <span className="ml-2 text-xs font-medium text-status-answered">✓ Correct</span>}
-                            {oi === userAns && !isCorrect && <span className="ml-2 text-xs font-medium text-status-not-answered">✗ Your answer</span>}
-                          </div>
-                        ))}
+                        {q.options.map((option, oi) => {
+                          const optText = typeof option === 'string' ? option : option.text;
+                          const optImg = typeof option === 'string' ? null : option.imageUrl;
+                          
+                          return (
+                            <div key={oi} className={`rounded-lg px-3 py-2 text-sm ${
+                              oi === q.correctAnswer ? 'bg-status-answered/10 text-foreground border border-status-answered/30' :
+                              oi === userAns && !isCorrect ? 'bg-status-not-answered/10 text-foreground border border-status-not-answered/30' :
+                              'bg-muted/50 text-muted-foreground'
+                            }`}>
+                              <div className="flex flex-col gap-2">
+                                <div>
+                                    <span className="font-bold">{String.fromCharCode(65 + oi)}.</span> {optText}
+                                    {oi === q.correctAnswer && <span className="ml-2 text-xs font-bold text-status-answered uppercase flex items-center gap-1">✓ Correct</span>}
+                                    {oi === userAns && !isCorrect && <span className="ml-2 text-xs font-bold text-status-not-answered uppercase flex items-center gap-1">✗ Your answer</span>}
+                                </div>
+                                {optImg && <img src={optImg} alt="Opt" className="max-h-24 w-auto rounded border bg-white" />}
+                              </div>
+                            </div>
+                          );
+                        })}
                         <div className="mt-2 rounded-lg bg-accent p-3 text-xs text-accent-foreground">
                           <strong>Explanation:</strong> {q.explanation}
                         </div>

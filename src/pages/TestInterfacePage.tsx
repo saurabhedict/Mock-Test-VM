@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { getQuestionsForTest, type Question } from '@/data/questions';
 import { examConfigs, getAllTests } from '@/data/exams';
+import api from '@/services/api';
 
 type QuestionStatus = 'not-visited' | 'not-answered' | 'answered' | 'marked';
 
@@ -19,41 +20,91 @@ interface TestState {
 export default function TestInterfacePage() {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
-  const questions = getQuestionsForTest(testId || '');
-  const allTests = examConfigs.flatMap(e => getAllTests(e.examId));
-  const testInfo = allTests.find(t => t.testId === testId);
-
-  const [state, setState] = useState<TestState>(() => {
-    // Try to resume from localStorage
-    const saved = localStorage.getItem(`test_${testId}`);
-    if (saved) {
-      try { return JSON.parse(saved); } catch {}
-    }
-    const statuses: Record<number, QuestionStatus> = {};
-    const answers: Record<number, number | null> = {};
-    questions.forEach((_, i) => {
-      statuses[i] = i === 0 ? 'not-answered' : 'not-visited';
-      answers[i] = null;
-    });
-    return { answers, statuses, currentQuestion: 0, tabSwitchCount: 0, startTime: Date.now() };
-  });
-
-  const [timeLeft, setTimeLeft] = useState(() => {
-    const duration = (testInfo?.duration || 60) * 60;
-    const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
-    return Math.max(0, duration - elapsed);
-  });
-
+  
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [testInfo, setTestInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<TestState | null>(null);
+  const [timeLeft, setTimeLeft] = useState(0);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Auto-save
+  // 1. Fetch Data
   useEffect(() => {
-    localStorage.setItem(`test_${testId}`, JSON.stringify(state));
-  }, [state, testId]);
+    const fetchTestData = async () => {
+      const staticQuestions = getQuestionsForTest(testId || '');
+      const allStaticTests = examConfigs.flatMap(e => getAllTests(e.examId));
+      const staticTestInfo = allStaticTests.find(t => t.testId === testId);
+
+      let finalQuestions = [];
+      let finalTestInfo = null;
+
+      if (staticQuestions.length > 0 && staticTestInfo) {
+        finalQuestions = staticQuestions;
+        finalTestInfo = staticTestInfo;
+      } else {
+        try {
+          const { data } = await api.get(`/tests/${testId}`);
+          finalQuestions = data.questions.map((q: any) => ({
+            id: q._id,
+            question: q.question,
+            questionImage: q.questionImage,
+            options: q.options.map((o: any) => ({ text: o.text, imageUrl: o.imageUrl })),
+            correctAnswer: q.correctAnswer,
+            subject: q.subject,
+            explanation: q.explanation
+          }));
+          finalTestInfo = {
+            testName: data.title,
+            duration: data.durationMinutes,
+            totalMarks: data.totalMarks
+          };
+        } catch (error) {
+          toast.error("Failed to load test data");
+          navigate('/exams');
+          return;
+        }
+      }
+
+      setQuestions(finalQuestions);
+      setTestInfo(finalTestInfo);
+
+      // Initialize State
+      const saved = localStorage.getItem(`test_${testId}`);
+      if (saved) {
+        try { 
+          const parsed = JSON.parse(saved);
+          setState(parsed);
+          const duration = (finalTestInfo?.duration || 60) * 60;
+          const elapsed = Math.floor((Date.now() - parsed.startTime) / 1000);
+          setTimeLeft(Math.max(0, duration - elapsed));
+        } catch { 
+            initializeNewState(finalQuestions, finalTestInfo);
+        }
+      } else {
+        initializeNewState(finalQuestions, finalTestInfo);
+      }
+      setLoading(false);
+    };
+
+    const initializeNewState = (qs: any[], info: any) => {
+        const statuses: Record<number, QuestionStatus> = {};
+        const answers: Record<number, number | null> = {};
+        qs.forEach((_, i) => {
+          statuses[i] = i === 0 ? 'not-answered' : 'not-visited';
+          answers[i] = null;
+        });
+        const newState = { answers, statuses, currentQuestion: 0, tabSwitchCount: 0, startTime: Date.now() };
+        setState(newState);
+        setTimeLeft((info?.duration || 60) * 60);
+    };
+
+    fetchTestData();
+  }, [testId, navigate]);
 
   // Timer
   useEffect(() => {
+    if (loading || !state) return;
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -65,19 +116,26 @@ export default function TestInterfacePage() {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [loading, state]);
 
-  // Anti-cheating: tab switch detection
+  // Auto-save
   useEffect(() => {
+    if (state) localStorage.setItem(`test_${testId}`, JSON.stringify(state));
+  }, [state, testId]);
+
+  // Anti-cheating
+  useEffect(() => {
+    if (loading) return;
     const handleVisibility = () => {
       if (document.hidden) {
         setState(prev => {
+          if (!prev) return prev;
           const count = prev.tabSwitchCount + 1;
           if (count >= 3) {
             toast.error('You switched tabs 3 times. Test auto-submitted.');
             setTimeout(() => handleSubmit(), 500);
           } else {
-            toast.warning(`Warning ${count}/3: Tab switch detected! Test will be auto-submitted after 3 switches.`);
+            toast.warning(`Warning ${count}/3: Tab switch detected!`);
           }
           return { ...prev, tabSwitchCount: count };
         });
@@ -85,44 +143,10 @@ export default function TestInterfacePage() {
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, []);
-
-  // Anti-cheating: disable right click, copy, paste, dev tools
-  useEffect(() => {
-    const preventDefault = (e: Event) => { e.preventDefault(); toast.warning('This action is disabled during the exam.'); };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I') || (e.ctrlKey && e.key === 'u')) {
-        e.preventDefault();
-        toast.warning('Developer tools are disabled during the exam.');
-      }
-    };
-    document.addEventListener('contextmenu', preventDefault);
-    document.addEventListener('copy', preventDefault);
-    document.addEventListener('paste', preventDefault);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('contextmenu', preventDefault);
-      document.removeEventListener('copy', preventDefault);
-      document.removeEventListener('paste', preventDefault);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
-  // Fullscreen
-  const enterFullscreen = useCallback(() => {
-    document.documentElement.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    enterFullscreen();
-    const handleFsChange = () => {
-      if (!document.fullscreenElement) setIsFullscreen(false);
-    };
-    document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
-  }, []);
+  }, [loading]);
 
   const handleSubmit = useCallback(() => {
+    if (!state) return;
     localStorage.removeItem(`test_${testId}`);
     const resultData = {
       testId,
@@ -133,19 +157,20 @@ export default function TestInterfacePage() {
     localStorage.setItem(`result_${testId}`, JSON.stringify(resultData));
     if (document.fullscreenElement) document.exitFullscreen?.();
     navigate(`/results/${testId}`);
-  }, [state.answers, timeLeft, testId, questions, navigate, testInfo]);
+  }, [state, timeLeft, testId, questions, navigate, testInfo]);
 
   const selectOption = (optionIndex: number) => {
-    setState(prev => ({
+    setState(prev => prev ? ({
       ...prev,
       answers: { ...prev.answers, [prev.currentQuestion]: optionIndex },
       statuses: { ...prev.statuses, [prev.currentQuestion]: 'answered' },
-    }));
+    }) : null);
   };
 
   const saveAndNext = () => {
-    if (state.currentQuestion < questions.length - 1) {
+    if (state && state.currentQuestion < questions.length - 1) {
       setState(prev => {
+        if (!prev) return null;
         const next = prev.currentQuestion + 1;
         return {
           ...prev,
@@ -157,33 +182,33 @@ export default function TestInterfacePage() {
   };
 
   const goToPrevious = () => {
-    if (state.currentQuestion > 0) {
-      setState(prev => ({ ...prev, currentQuestion: prev.currentQuestion - 1 }));
+    if (state && state.currentQuestion > 0) {
+      setState(prev => prev ? ({ ...prev, currentQuestion: prev.currentQuestion - 1 }) : null);
     }
   };
 
   const markForReview = () => {
-    setState(prev => ({
+    setState(prev => prev ? ({
       ...prev,
       statuses: { ...prev.statuses, [prev.currentQuestion]: 'marked' },
-    }));
+    }) : null);
     saveAndNext();
   };
 
   const clearResponse = () => {
-    setState(prev => ({
+    setState(prev => prev? ({
       ...prev,
       answers: { ...prev.answers, [prev.currentQuestion]: null },
       statuses: { ...prev.statuses, [prev.currentQuestion]: 'not-answered' },
-    }));
+    }) : null);
   };
 
   const goToQuestion = (index: number) => {
-    setState(prev => ({
+    setState(prev => prev ? ({
       ...prev,
       currentQuestion: index,
       statuses: { ...prev.statuses, [index]: prev.statuses[index] === 'not-visited' ? 'not-answered' : prev.statuses[index] },
-    }));
+    }) : null);
   };
 
   const formatTime = (seconds: number) => {
@@ -193,9 +218,9 @@ export default function TestInterfacePage() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const currentQ = questions[state.currentQuestion];
-  if (!currentQ) return null;
+  if (loading || !state) return <div className="h-screen flex items-center justify-center">Loading test...</div>;
 
+  const currentQ = questions[state.currentQuestion];
   const statusColors: Record<QuestionStatus, string> = {
     'not-visited': 'bg-status-not-visited text-primary-foreground',
     'not-answered': 'bg-status-not-answered text-primary-foreground',
@@ -209,35 +234,19 @@ export default function TestInterfacePage() {
 
   return (
     <div className="h-screen flex flex-col bg-background select-none">
-      {/* Top Bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card">
         <div className="flex items-center gap-4">
-          <span className="font-display font-bold text-foreground text-sm">
-            Mock<span className="text-primary">Prep</span>
-          </span>
-          <span className="text-sm text-muted-foreground hidden sm:block">{testInfo?.testName || 'Mock Test'}</span>
+          <span className="font-display font-bold text-foreground text-sm">Vidyarthi Mitra Test Portal</span>
+          <span className="text-sm text-muted-foreground hidden sm:block">{testInfo?.testName}</span>
         </div>
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-mono text-sm font-semibold ${timeLeft < 300 ? 'bg-destructive/10 text-destructive' : 'bg-accent text-accent-foreground'}`}>
           <Clock className="h-4 w-4" />
           {formatTime(timeLeft)}
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground hidden sm:block">Candidate: Student</span>
-          <Button size="sm" variant="destructive" onClick={() => setShowSubmitDialog(true)} className="gap-1">
-            <Send className="h-3.5 w-3.5" /> Submit Test
-          </Button>
-        </div>
+        <Button size="sm" variant="destructive" onClick={() => setShowSubmitDialog(true)}>Submit Test</Button>
       </div>
 
-      {!isFullscreen && (
-        <div className="bg-accent/50 px-4 py-2 flex items-center justify-between text-sm">
-          <span className="text-accent-foreground flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Fullscreen recommended for exam experience</span>
-          <Button size="sm" variant="outline" onClick={enterFullscreen}>Enter Fullscreen</Button>
-        </div>
-      )}
-
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Question */}
         <div className="flex-1 flex flex-col overflow-auto p-6">
           <div className="flex-1">
             <div className="mb-4 flex items-center gap-2">
@@ -246,100 +255,67 @@ export default function TestInterfacePage() {
               </span>
               <span className="text-xs text-muted-foreground font-medium px-2 py-0.5 rounded bg-muted">{currentQ.subject}</span>
             </div>
-
             <h3 className="text-lg font-medium text-foreground leading-relaxed mb-6">{currentQ.question}</h3>
+            
+            {currentQ.questionImage && (
+              <div className="mb-6 rounded-xl overflow-hidden border border-border bg-muted/30 max-w-2xl mx-auto">
+                <img src={currentQ.questionImage} alt="Question" className="max-h-[300px] w-auto mx-auto object-contain" />
+              </div>
+            )}
 
             <div className="space-y-3">
-              {currentQ.options.map((option, i) => (
-                <button
-                  key={i}
-                  onClick={() => selectOption(i)}
-                  className={`w-full text-left rounded-xl border-2 px-5 py-4 transition-all ${
-                    state.answers[state.currentQuestion] === i
-                      ? 'border-primary bg-accent text-accent-foreground'
-                      : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-accent/50'
-                  }`}
-                >
-                  <span className="inline-flex items-center gap-3">
-                    <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                      state.answers[state.currentQuestion] === i
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {String.fromCharCode(65 + i)}
-                    </span>
-                    <span className="text-sm">{option}</span>
-                  </span>
-                </button>
-              ))}
+              {currentQ.options.map((option: any, i: number) => {
+                const optText = typeof option === 'string' ? option : option.text;
+                const optImg = typeof option === 'string' ? null : option.imageUrl;
+                
+                return (
+                  <button
+                    key={i}
+                    onClick={() => selectOption(i)}
+                    className={`w-full text-left rounded-xl border-2 px-5 py-4 transition-all ${
+                      state.answers[state.currentQuestion] === i ? 'border-primary bg-accent' : 'border-border bg-card hover:bg-accent/50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className={`h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-bold ${state.answers[state.currentQuestion] === i ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>{String.fromCharCode(65 + i)}</span>
+                      <div className="flex-1 space-y-2">
+                        {optText && <span className="text-sm block">{optText}</span>}
+                        {optImg && <img src={optImg} alt={`Option ${i+1}`} className="max-h-32 w-auto rounded border" />}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
-
-          {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-2 mt-6 pt-4 border-t border-border">
-            <Button variant="outline" size="sm" onClick={goToPrevious} disabled={state.currentQuestion === 0} className="gap-1">
-              <ChevronLeft className="h-3.5 w-3.5" /> Previous
-            </Button>
-            <Button size="sm" onClick={saveAndNext} disabled={state.currentQuestion === questions.length - 1} className="gap-1">
-              Save & Next <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={markForReview} className="gap-1">
-              <Flag className="h-3.5 w-3.5" /> Mark for Review
-            </Button>
-            <Button variant="ghost" size="sm" onClick={clearResponse} className="gap-1">
-              <RotateCcw className="h-3.5 w-3.5" /> Clear
-            </Button>
+          <div className="flex gap-2 mt-6 pt-4 border-t border-border">
+            <Button variant="outline" size="sm" onClick={goToPrevious} disabled={state.currentQuestion === 0}>Previous</Button>
+            <Button size="sm" onClick={saveAndNext} disabled={state.currentQuestion === questions.length - 1}>Save & Next</Button>
+            <Button variant="outline" size="sm" onClick={markForReview}>Mark for Review</Button>
+            <Button variant="ghost" size="sm" onClick={clearResponse}>Clear</Button>
           </div>
         </div>
-
-        {/* Right Panel - Question Palette */}
         <div className="w-64 border-l border-border bg-card p-4 overflow-auto hidden md:block">
-          <h4 className="font-semibold text-foreground text-sm mb-3">Question Palette</h4>
-
-          <div className="grid grid-cols-5 gap-1.5 mb-4">
+           <h4 className="font-semibold text-sm mb-3">Question Palette</h4>
+           <div className="grid grid-cols-5 gap-1.5 mb-4">
             {questions.map((_, i) => (
               <button
                 key={i}
                 onClick={() => goToQuestion(i)}
-                className={`h-9 w-9 rounded-lg text-xs font-semibold transition-all ${
-                  i === state.currentQuestion ? 'ring-2 ring-ring ring-offset-1' : ''
-                } ${statusColors[state.statuses[i]]}`}
+                className={`h-9 w-9 rounded-lg text-xs font-semibold ${i === state.currentQuestion ? 'ring-2 ring-primary ring-offset-1' : ''} ${statusColors[state.statuses[i]]}`}
               >
                 {i + 1}
               </button>
             ))}
           </div>
-
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="h-4 w-4 rounded bg-status-answered" />
-              <span className="text-muted-foreground">Answered ({answeredCount})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-4 w-4 rounded bg-status-not-answered" />
-              <span className="text-muted-foreground">Not Answered ({notAnsweredCount})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-4 w-4 rounded bg-status-not-visited" />
-              <span className="text-muted-foreground">Not Visited ({Object.values(state.statuses).filter(s => s === 'not-visited').length})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-4 w-4 rounded bg-status-marked" />
-              <span className="text-muted-foreground">Marked ({markedCount})</span>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Submit confirmation dialog */}
       {showSubmitDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg mx-4">
-            <h3 className="text-lg font-display font-bold text-foreground">Submit Test?</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              You have answered {answeredCount} out of {questions.length} questions.
-              {markedCount > 0 && ` ${markedCount} questions are marked for review.`}
-            </p>
+          <div className="w-full max-w-md bg-card p-6 rounded-xl border border-border">
+            <h3 className="text-lg font-bold">Submit Test?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">You have answered {answeredCount} questions.</p>
             <div className="mt-6 flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setShowSubmitDialog(false)}>Go Back</Button>
               <Button variant="destructive" className="flex-1" onClick={handleSubmit}>Submit Test</Button>

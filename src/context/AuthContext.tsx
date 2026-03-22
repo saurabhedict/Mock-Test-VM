@@ -7,6 +7,7 @@ interface User {
   examPref?: string; profilePhoto?: string; bio?: string;
   streak?: number; lastStudyDate?: string; darkMode?: boolean;
   purchases?: Purchase[];
+  role: 'student' | 'admin';
 }
 interface AuthContextType {
   user: User | null; loading: boolean;

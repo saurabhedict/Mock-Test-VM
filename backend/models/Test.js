@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const testSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
+    exam: { type: String, required: true },
     subject: { type: String, required: true },
     durationMinutes: { type: Number, required: true },
     totalMarks: { type: Number, required: true },
