@@ -7,6 +7,27 @@ const { sendOTPSMS } = require("../utils/sendSMS");
 
 const generateOTP = () => crypto.randomInt(100000, 999999).toString();
 
+// Reusable streak updater
+function updateStreak(user) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const lastDate = user.lastStudyDate ? new Date(user.lastStudyDate) : null;
+  if (lastDate) lastDate.setHours(0, 0, 0, 0);
+
+  const diffDays = lastDate
+    ? Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  if (diffDays === null || diffDays > 1) {
+    user.streak = 1;
+  } else if (diffDays === 1) {
+    user.streak = (user.streak || 0) + 1;
+  }
+
+  user.lastStudyDate = new Date();
+}
+
 exports.register = async (req, res) => {
   try {
     const { name, email, password, phone, examPref, otpMethod } = req.body;
@@ -46,6 +67,7 @@ exports.register = async (req, res) => {
     res.status(500).json({ success: false, message: error.message || "Server error during registration" });
   }
 };
+
 exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -55,16 +77,31 @@ exports.verifyOTP = async (req, res) => {
     if (user.otp !== otp) return res.status(400).json({ success: false, message: "Invalid OTP" });
     if (user.otpExpiry < new Date()) return res.status(400).json({ success: false, message: "OTP has expired. Please register again." });
 
-    user.isVerified = true; user.otp = undefined; user.otpExpiry = undefined;
-    const accessToken = generateAccessToken(user._id);
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpiry = undefined;
+
+    // ── Single session enforcement ──────────────────────────
+    user.sessionVersion = (user.sessionVersion || 0) + 1;
+    // ────────────────────────────────────────────────────────
+
+    const accessToken = generateAccessToken(user._id, user.sessionVersion);
     const refreshToken = generateRefreshToken(user._id);
     user.refreshToken = refreshToken;
+
+    updateStreak(user);
+
     await user.save({ validateBeforeSave: false });
     setRefreshTokenCookie(res, refreshToken);
 
     res.json({
       success: true, message: "Email verified! Welcome to Vidyarthi Mitra.", accessToken,
-      user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, examPref: user.examPref, purchases: user.purchases, role: user.role },
+      user: {
+        _id: user._id, name: user.name, email: user.email,
+        phone: user.phone, examPref: user.examPref,
+        streak: user.streak, lastStudyDate: user.lastStudyDate,
+        purchases: user.purchases, role: user.role,
+      },
     });
   } catch (error) {
     console.error("VerifyOTP error:", error);
@@ -132,20 +169,40 @@ exports.resetPassword = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ success: false, message: "Email and password are required" });
+    if (!email || !password)
+      return res.status(400).json({ success: false, message: "Email and password are required" });
+
     const user = await User.findOne({ email: email.toLowerCase() }).select("+password +refreshToken");
-    if (!user) return res.status(401).json({ success: false, message: "Invalid email or password" });
-    if (!user.isVerified) return res.status(401).json({ success: false, message: "Please verify your email before logging in", needsVerification: true, email: user.email });
+    if (!user)
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    if (!user.isVerified)
+      return res.status(401).json({ success: false, message: "Please verify your email before logging in", needsVerification: true, email: user.email });
+
     const isMatch = await user.matchPassword(password);
-    if (!isMatch) return res.status(401).json({ success: false, message: "Invalid email or password" });
-    const accessToken = generateAccessToken(user._id);
+    if (!isMatch)
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+
+    updateStreak(user);
+
+    // ── Single session enforcement ──────────────────────────
+    user.sessionVersion = (user.sessionVersion || 0) + 1;
+    // ────────────────────────────────────────────────────────
+
+    const accessToken = generateAccessToken(user._id, user.sessionVersion);
     const refreshToken = generateRefreshToken(user._id);
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
     setRefreshTokenCookie(res, refreshToken);
+
     res.json({
       success: true, message: "Logged in successfully", accessToken,
-      user: { _id: user._id, name: user.name, email: user.email, phone: user.phone, examPref: user.examPref, profilePhoto: user.profilePhoto, bio: user.bio, streak: user.streak, darkMode: user.darkMode, purchases: user.purchases, role: user.role },
+      user: {
+        _id: user._id, name: user.name, email: user.email,
+        phone: user.phone, examPref: user.examPref,
+        profilePhoto: user.profilePhoto, bio: user.bio,
+        streak: user.streak, lastStudyDate: user.lastStudyDate,
+        darkMode: user.darkMode, purchases: user.purchases, role: user.role,
+      },
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -165,7 +222,9 @@ exports.refreshToken = async (req, res) => {
       res.clearCookie("refreshToken");
       return res.status(401).json({ success: false, message: "Invalid refresh token — please log in again" });
     }
-    res.json({ success: true, accessToken: generateAccessToken(user._id) });
+    // ── Keep sessionVersion in the refreshed token ──────────
+    res.json({ success: true, accessToken: generateAccessToken(user._id, user.sessionVersion || 0) });
+    // ────────────────────────────────────────────────────────
   } catch (error) {
     console.error("Refresh error:", error);
     res.status(500).json({ success: false, message: "Server error during token refresh" });
@@ -253,5 +312,35 @@ exports.updateSettings = async (req, res) => {
   } catch (error) {
     console.error("UpdateSettings error:", error);
     res.status(500).json({ success: false, message: "Server error updating settings" });
+  }
+};
+
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const TestAttempt = require("../models/TestAttempt");
+    const Payment = require("../models/Payment");
+    await TestAttempt.deleteMany({ userId });
+    await Payment.deleteMany({ userId });
+    await User.findByIdAndDelete(userId);
+    res.clearCookie("refreshToken", { httpOnly: true, sameSite: "none", secure: true });
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    res.status(500).json({ success: false, message: "Failed to delete account" });
+  }
+};
+
+exports.verifyPasswordForDelete = async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ success: false, message: "Password is required" });
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) return res.status(401).json({ success: false, message: "Incorrect password" });
+    res.json({ success: true, message: "Password verified" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

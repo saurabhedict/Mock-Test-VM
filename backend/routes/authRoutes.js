@@ -4,6 +4,7 @@ const {
   forgotPassword, resetPassword,
   login, refreshToken, logout,
   getMe, updateProfile, uploadPhoto, updateSettings,
+  deleteAccount, verifyPasswordForDelete,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
@@ -19,6 +20,8 @@ router.post("/logout", logout);
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
 router.put("/settings", protect, updateSettings);
+router.delete("/delete-account", protect, deleteAccount);
+router.post("/verify-password-for-delete", protect, verifyPasswordForDelete);
 router.post("/upload-photo", protect, (req, res, next) => {
   upload.single("photo")(req, res, (err) => {
     if (err) {

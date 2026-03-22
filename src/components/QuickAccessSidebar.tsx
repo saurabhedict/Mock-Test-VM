@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import api from "@/services/api";
 
 const QUOTES = [
   "Success is the sum of small efforts, repeated day in and day out.",
@@ -48,6 +49,17 @@ interface Props {
   onClose: () => void;
 }
 
+const timeAgo = (dateStr: string) => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs > 1 ? "s" : ""} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days > 1 ? "s" : ""} ago`;
+};
+
 export default function QuickAccessSidebar({ open, onClose }: Props) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -59,18 +71,94 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
   const [studyTime, setStudyTime] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerInterval, setTimerInterval] = useState<ReturnType<typeof setInterval> | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: "1", type: "success", message: "New MHT CET mock test added!", time: "2 hrs ago", read: false },
-    { id: "2", type: "info", message: "Your profile is 70% complete", time: "1 day ago", read: false },
-    { id: "3", type: "warning", message: "MHT CET exam in 45 days!", time: "Just now", read: false },
-  ]);
+
+  // ── Real notifications from API ─────────────────────────
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchNotifications = async () => {
+      try {
+        const { data } = await api.get("/notifications");
+        const fetched = (data.notifications || []).map((n: any) => ({
+          id: n._id,
+          type: n.type,
+          message: n.message,
+          time: timeAgo(n.createdAt),
+          read: false,
+        }));
+        setNotifications(fetched);
+      } catch {}
+    };
+    fetchNotifications();
+  }, [user]);
+  // ────────────────────────────────────────────────────────
+
   const [activeTab, setActiveTab] = useState<"main" | "notifications">("main");
-  const [streak] = useState(user?.streak || 0);
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+
+  // ── Real performance stats ──────────────────────────────
+  const [perfStats, setPerfStats] = useState({ totalTests: 0, avgAccuracy: 0, purchaseCount: 0 });
+  const [perfLoading, setPerfLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !user) return;
+    const fetchStats = async () => {
+      setPerfLoading(true);
+      try {
+        const { data } = await api.get("/tests/my-attempts");
+        const attempts = data || [];
+        const completed = attempts.filter((a: any) => a.status === "COMPLETED");
+        const totalTests = completed.length;
+        const avgAccuracy =
+          totalTests > 0
+            ? Math.round(
+                completed.reduce((acc: number, a: any) => {
+                  const total = a.totalQuestions || 1;
+                  const score = a.score || 0;
+                  return acc + (score / total) * 100;
+                }, 0) / totalTests
+              )
+            : 0;
+        const purchaseCount = user?.purchases?.length || 0;
+        setPerfStats({ totalTests, avgAccuracy, purchaseCount });
+      } catch {
+        const testResults = Object.keys(localStorage)
+          .filter((k) => k.startsWith("result_"))
+          .map((k) => {
+            try { return JSON.parse(localStorage.getItem(k) || ""); }
+            catch { return null; }
+          })
+          .filter(Boolean);
+        const totalTests = testResults.length;
+        const avgAccuracy =
+          totalTests > 0
+            ? Math.round(
+                testResults.reduce((acc: number, r: any) => {
+                  const correct = Object.entries(r.answers).filter(
+                    ([i, a]) => r.questions[parseInt(i)]?.correctAnswer === a
+                  ).length;
+                  return acc + (correct / (r.questions?.length || 1)) * 100;
+                }, 0) / totalTests
+              )
+            : 0;
+        setPerfStats({
+          totalTests,
+          avgAccuracy,
+          purchaseCount: user?.purchases?.length || 0,
+        });
+      } finally {
+        setPerfLoading(false);
+      }
+    };
+    fetchStats();
+  }, [open, user]);
+  // ────────────────────────────────────────────────────────
+
+  const streak = user?.streak || 0;
 
   const examKey = user?.examPref || "";
   const examDateStr = EXAM_DATES[examKey];
-  const examLabel = EXAM_LABELS[examKey] || "Your Exam";
   const daysLeft = examDateStr
     ? Math.max(0, Math.ceil((new Date(examDateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
@@ -144,30 +232,6 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
     toast.success("Logged out successfully");
   };
 
-  const purchaseCount =
-    (user as unknown as { purchases?: unknown[] })?.purchases?.length || 0;
-
-  const testResults = Object.keys(localStorage)
-    .filter((k) => k.startsWith("result_"))
-    .map((k) => {
-      try { return JSON.parse(localStorage.getItem(k) || ""); }
-      catch { return null; }
-    })
-    .filter(Boolean);
-
-  const totalTests = testResults.length;
-  const avgAccuracy =
-    totalTests > 0
-      ? Math.round(
-          testResults.reduce((acc, r) => {
-            const correct = Object.entries(r.answers).filter(
-              ([i, a]) => r.questions[parseInt(i)]?.correctAnswer === a
-            ).length;
-            return acc + (correct / (r.questions?.length || 1)) * 100;
-          }, 0) / totalTests
-        )
-      : 0;
-
   if (!open) return null;
 
   return (
@@ -219,31 +283,43 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
             <div className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
-                <button
-                  type="button"
-                  onClick={markAllRead}
-                  aria-label="Mark all notifications as read"
-                  className="text-xs text-primary hover:underline"
-                >
-                  Mark all read
-                </button>
-              </div>
-              <div className="space-y-2">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`rounded-lg p-3 flex gap-2.5 ${n.read ? "bg-muted/40" : "bg-accent"}`}
+                {notifications.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllRead}
+                    aria-label="Mark all notifications as read"
+                    className="text-xs text-primary hover:underline"
                   >
-                    {n.type === "success" && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />}
-                    {n.type === "info" && <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />}
-                    {n.type === "warning" && <AlertCircle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />}
-                    <div>
-                      <p className="text-xs text-foreground">{n.message}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{n.time}</p>
-                    </div>
-                  </div>
-                ))}
+                    Mark all read
+                  </button>
+                )}
               </div>
+
+              {notifications.length === 0 ? (
+                <div className="text-center py-10">
+                  <Bell className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-30" />
+                  <p className="text-sm text-muted-foreground">No notifications yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Admin will post updates here</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`rounded-lg p-3 flex gap-2.5 ${n.read ? "bg-muted/40" : "bg-accent"}`}
+                    >
+                      {n.type === "success" && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />}
+                      {n.type === "info" && <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />}
+                      {n.type === "warning" && <AlertCircle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />}
+                      <div>
+                        <p className="text-xs text-foreground">{n.message}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{n.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={() => setActiveTab("main")}
@@ -259,24 +335,24 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
           {activeTab === "main" && (
             <div className="p-4 space-y-4">
 
-                    {/* User info */}
-                    {user && (
-                      <div className="flex items-center gap-3 pb-3 border-b border-border">
-                        <div className="h-10 w-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
-                          {user.profilePhoto ? (
-                            <img src={user.profilePhoto} alt={user.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <span className="font-bold text-primary">{user.name.charAt(0).toUpperCase()}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm text-foreground truncate">{user.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                        </div>
-                      </div>
+              {/* User info */}
+              {user && (
+                <div className="flex items-center gap-3 pb-3 border-b border-border">
+                  <div className="h-10 w-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
+                    {user.profilePhoto ? (
+                      <img src={user.profilePhoto} alt={user.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="font-bold text-primary">{user.name.charAt(0).toUpperCase()}</span>
                     )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-foreground truncate">{user.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  </div>
+                </div>
+              )}
 
-              {/* 1. Study Streak */}
+              {/* Study Streak */}
               <div className="rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -292,30 +368,40 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 </p>
               </div>
 
-
-              {/* 4. Quick Stats */}
+              {/* Your Performance */}
               <div className="rounded-lg border border-border p-3">
-                <div className="flex items-center gap-2 mb-3">
-                  <BarChart3 className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-foreground">Your Performance</span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Your Performance</span>
+                  </div>
+                  {perfLoading && (
+                    <div className="h-3 w-3 rounded-full border border-primary border-t-transparent animate-spin" />
+                  )}
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <p className="text-lg font-bold text-foreground">{totalTests}</p>
+                    <p className="text-lg font-bold text-foreground">
+                      {perfLoading ? "—" : perfStats.totalTests}
+                    </p>
                     <p className="text-[10px] text-muted-foreground">Tests</p>
                   </div>
                   <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <p className="text-lg font-bold text-foreground">{avgAccuracy}%</p>
+                    <p className="text-lg font-bold text-foreground">
+                      {perfLoading ? "—" : `${perfStats.avgAccuracy}%`}
+                    </p>
                     <p className="text-[10px] text-muted-foreground">Accuracy</p>
                   </div>
                   <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <p className="text-lg font-bold text-foreground">{purchaseCount}</p>
+                    <p className="text-lg font-bold text-foreground">
+                      {perfLoading ? "—" : perfStats.purchaseCount}
+                    </p>
                     <p className="text-[10px] text-muted-foreground">Purchased</p>
                   </div>
                 </div>
               </div>
 
-              {/* 5. Quick Start */}
+              {/* Quick Start */}
               <div className="rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <Play className="h-4 w-4 text-primary" />
@@ -330,7 +416,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 </Link>
               </div>
 
-              {/* 6. My Progress */}
+              {/* My Progress */}
               <div className="rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="h-4 w-4 text-primary" />
@@ -339,7 +425,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 <div className="space-y-1">
                   {[
                     ...(user?.role === 'admin' ? [{ label: "Admin Portal", path: "/admin", icon: Zap }] : []),
-                    { label: "View All Results", path: "/exams", icon: BarChart3 },
+                    { label: "View All Results", path: "/my-results", icon: BarChart3 },
                     { label: "My Purchases", path: "/my-purchases", icon: ShoppingBag },
                     { label: "My Profile", path: "/profile", icon: Target },
                   ].map((item) => (
@@ -359,9 +445,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 </div>
               </div>
 
-             
-
-              {/* 9. Quote of the Day */}
+              {/* Quote of the Day */}
               <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <BookOpen className="h-4 w-4 text-primary" />
@@ -370,7 +454,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 <p className="text-xs text-foreground italic leading-relaxed">"{quote}"</p>
               </div>
 
-              {/* 10. Dark Mode */}
+              {/* Dark Mode */}
               <div className="rounded-lg border border-border p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -399,7 +483,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 </div>
               </div>
 
-              {/* 11. Refer a Friend */}
+              {/* Refer a Friend */}
               <div className="rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <Share2 className="h-4 w-4 text-primary" />
@@ -418,7 +502,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 </button>
               </div>
 
-              {/* 12. Help & Support */}
+              {/* Help & Support */}
               <div className="rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2 mb-3">
                   <MessageCircle className="h-4 w-4 text-primary" />
@@ -426,29 +510,26 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 </div>
                 <div className="space-y-2">
 
-                  {/* Email */}
-             <button
-                     type="button"
-                  onClick={() => {
-                         window.open(
-                              "https://mail.google.com/mail/?view=cm&to=contact@vidyarthimitra.org&su=Support Request",
-                              "_blank"
-                             );
-                           }}
-                     className="flex items-center gap-3 py-2 px-3 rounded-lg border border-border hover:bg-muted transition-colors w-full                    text-left"
-                   >
-                     <div className="h-7 w-7 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                       <MessageCircle className="h-3.5 w-3.5 text-red-500" />
-                     </div>
-                     <div className="min-w-0">
-                       <p className="text-xs font-medium text-foreground">Email Us</p>
-                       <p className="text-[10px] text-muted-foreground truncate">contact@vidyarthimitra.org</p>
-                     </div>
-                     <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
-            </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.open(
+                        "https://mail.google.com/mail/?view=cm&to=contact@vidyarthimitra.org&su=Support Request",
+                        "_blank"
+                      );
+                    }}
+                    className="flex items-center gap-3 py-2 px-3 rounded-lg border border-border hover:bg-muted transition-colors w-full text-left"
+                  >
+                    <div className="h-7 w-7 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                      <MessageCircle className="h-3.5 w-3.5 text-red-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground">Email Us</p>
+                      <p className="text-[10px] text-muted-foreground truncate">contact@vidyarthimitra.org</p>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
+                  </button>
 
-
-                  {/* WhatsApp */}
                   <button
                     type="button"
                     onClick={() => { window.open("https://wa.me/917720081400?text=Hi%20Vidyarthi%20Mitra%2C%20I%20need%20support", "_blank"); }}
@@ -464,31 +545,30 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                     <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
                   </button>
 
-                  {/* Report Issue */}
                   <button
-                          type="button"
-                      onClick={() => {
-                        window.open(
-                          "https://mail.google.com/mail/?view=cm&to=contact@vidyarthimitra.org&su=Issue%20Report%20-%20Vidyarthi%20Mitra&                    body=Hi%20Vidyarthi%20Mitra%20Team%2C%0A%0AI%20would%20like%20to%20report%20the%20following%20issue%3A%0A%0A%5BDe                    scribe%20your%20issue%20here%5D%0A%0ADevice%3A%20%5BYour%20device%5D%0ABrowser%3A%20%5BYour%20browser%5D%0A%0ATha                    nk%20you",
-                          "_blank"
-                        );
-                      }}
-                      className="flex items-center gap-3 py-2 px-3 rounded-lg border border-border hover:bg-muted transition-colors w-full                     text-left"
-                    >
-                      <div className="h-7 w-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                        <Flag className="h-3.5 w-3.5 text-orange-500" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-foreground">Report an Issue</p>
-                        <p className="text-[10px] text-muted-foreground">Help us improve</p>
-                      </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
-                    </button>
+                    type="button"
+                    onClick={() => {
+                      window.open(
+                        "https://mail.google.com/mail/?view=cm&to=contact@vidyarthimitra.org&su=Issue%20Report%20-%20Vidyarthi%20Mitra&body=Hi%20Vidyarthi%20Mitra%20Team%2C%0A%0AI%20would%20like%20to%20report%20the%20following%20issue%3A%0A%0A%5BDescribe%20your%20issue%20here%5D%0A%0ADevice%3A%20%5BYour%20device%5D%0ABrowser%3A%20%5BYour%20browser%5D%0A%0AThank%20you",
+                        "_blank"
+                      );
+                    }}
+                    className="flex items-center gap-3 py-2 px-3 rounded-lg border border-border hover:bg-muted transition-colors w-full text-left"
+                  >
+                    <div className="h-7 w-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                      <Flag className="h-3.5 w-3.5 text-orange-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-foreground">Report an Issue</p>
+                      <p className="text-[10px] text-muted-foreground">Help us improve</p>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
+                  </button>
 
                 </div>
               </div>
 
-              {/* 13. Premium Services */}
+              {/* Premium Services */}
               <div className="rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <ShoppingBag className="h-4 w-4 text-primary" />

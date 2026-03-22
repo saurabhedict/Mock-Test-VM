@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Eye, EyeOff, Mail, User, Lock, BookOpen, Phone } from "lucide-react";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { Eye, EyeOff, Mail, User, Lock, BookOpen, Phone, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -15,8 +15,11 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
+
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
+  const sessionExpired = searchParams.get("reason") === "session_expired";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,10 +43,22 @@ export default function LoginPage() {
       <Header />
       <div className="container flex items-center justify-center py-16">
         <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-card">
+
+          {/* Session expired banner */}
+          {sessionExpired && (
+            <div className="mb-5 flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-800 dark:bg-orange-950/30">
+              <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-orange-700 dark:text-orange-400">
+                You were logged out because your account was signed in on another device.
+              </p>
+            </div>
+          )}
+
           <div className="text-center mb-6">
             <h1 className="text-2xl font-display font-bold text-foreground">Welcome Back</h1>
             <p className="text-sm text-muted-foreground mt-1">Login to continue your preparation</p>
           </div>
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -69,6 +84,7 @@ export default function LoginPage() {
               {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
+
           <p className="text-center text-sm text-muted-foreground mt-4">
             Don't have an account?{" "}
             <Link to="/register" className="text-primary hover:underline font-medium">Register</Link>
@@ -142,9 +158,13 @@ export function RegisterPage() {
 
             <div className="relative">
               <BookOpen className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <select aria-label="Exam Preference"
+              <select
+                aria-label="Exam Preference"
                 className="w-full rounded-lg border border-input bg-background pl-10 pr-4 py-2 text-sm text-foreground"
-                value={form.examPref} onChange={(e) => setForm({ ...form, examPref: e.target.value })} disabled={isLoading}>
+                value={form.examPref}
+                onChange={(e) => setForm({ ...form, examPref: e.target.value })}
+                disabled={isLoading}
+              >
                 <option value="">Select Exam Preference</option>
                 <option value="mhtcet">MHT CET</option>
                 <option value="mah-bba-bca-cet">MAH-BBA/BCA CET</option>

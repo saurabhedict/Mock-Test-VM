@@ -75,28 +75,28 @@ export default function HeroSection() {
                   }
                 }}
               >
-                {text3.split("").map((char, i) => (
-                <motion.span
-                  key={i}
-                  variants={{
-                    hidden: { opacity: 0, y: 20, rotateX: -90 },
-                    visible: { opacity: 1, y: 0, rotateX: 0 }
-                  }}
-                  transition={{
-                    duration: 0.4,
-                    ease: "easeOut"
-                  }}
-                 className="inline-block text-muted-foreground dark:text-slate-300"
-                >
-                  {char === " " ? "\u00A0" : char}
-                </motion.span>
-              ))}
+                     {text3.split("").map((char, i) => (
+                  <motion.span
+                     key={i}
+                      variants={{
+                        hidden: { opacity: 0, y: 20, rotateX: -90 },
+                        visible: { opacity: 1, y: 0, rotateX: 0 }
+                     }}
+                     transition={{
+                       duration: 0.4,
+                       ease: "easeOut"
+                     }}
+                  className="inline-block text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-orange-500 to-amber-500"
+                   >                    
+                     {char === " " ? "\u00A0" : char}
+                   </motion.span>
+                  ))}
 
 
           <br />
 
                <motion.span
-                 className="block mt-3 text-xl font-semibold bg-gradient-to-r from-primary via-purple-500 to-blue-500 bg-clip-text text-transparent"
+                className="block mt-3 text-xl font-semibold bg-gradient-to-r from-orange-500 via-amber-500 to-orange-400 bg-clip-text text-transparent"
                               initial={{ opacity: 0, y: 30, scale: 0.9 }}
                  animate={{ opacity: 1, y: 0, scale: 1 }}
                  transition={{

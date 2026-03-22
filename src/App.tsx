@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import MyResultsPage from "./pages/MyResultsPage.tsx";
 
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -47,6 +48,7 @@ const App = () => (
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
+              <Route path="/my-results" element={<MyResultsPage />} />
               <Route path="/exams" element={<ExamsPage />} />
               <Route path="/exams/:examId" element={<TestListPage />} />
               <Route path="/test/:testId" element={<TestInterfacePage />} />

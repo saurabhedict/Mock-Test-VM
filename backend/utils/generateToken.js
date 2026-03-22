@@ -2,12 +2,11 @@ const jwt = require("jsonwebtoken");
 
 /**
  * Access Token — short lived (15 min), sent in JSON response body.
- * Frontend stores it in memory (React state), NOT localStorage.
- * Used as: Authorization: Bearer <token> on every protected request.
+ * Embeds sessionVersion (sv) so the middleware can detect stale sessions.
  */
-const generateAccessToken = (userId) => {
+const generateAccessToken = (userId, sessionVersion = 0) => {
   return jwt.sign(
-    { id: userId, type: "access" },
+    { id: userId, type: "access", sv: sessionVersion },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: "15m" }
   );
@@ -15,8 +14,6 @@ const generateAccessToken = (userId) => {
 
 /**
  * Refresh Token — long lived (7 days), stored in HTTP-only cookie.
- * The browser sends it automatically; JS can never read it.
- * Used only to get a new access token when the current one expires.
  */
 const generateRefreshToken = (userId) => {
   return jwt.sign(
@@ -28,16 +25,13 @@ const generateRefreshToken = (userId) => {
 
 /**
  * Sets the refresh token as an HTTP-only cookie on the response.
- * httpOnly: true  → JS cannot read it (prevents XSS token theft)
- * secure: true    → only sent over HTTPS (set to false in dev)
- * sameSite: strict → not sent on cross-site requests (CSRF protection)
  */
 const setRefreshTokenCookie = (res, refreshToken) => {
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
 

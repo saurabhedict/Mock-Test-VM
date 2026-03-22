@@ -11,6 +11,7 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const couponRoutes = require("./routes/couponRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 const app = express();
 
@@ -19,17 +20,8 @@ connectDB();
 console.log("SERVER LOG: App setup continuing...");
 
 // Middleware
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:8080",
-  "http://localhost:8081",
-  "http://localhost:3000",
-  "http://localhost:4173",
-  process.env.CLIENT_URL
-].filter(Boolean);
-
 app.use(cors({
-  origin: true, // This allow all origins from where the request is made on Vercel
+  origin: true,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-admin-key"],
@@ -49,6 +41,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/notifications", notificationRoutes); // ← correct position
 
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err.stack);

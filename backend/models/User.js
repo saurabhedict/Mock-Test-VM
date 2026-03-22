@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema(
     state: String,
     city: String,
     role: { type: String, enum: ["student", "admin"], default: "student" },
+    sessionVersion: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

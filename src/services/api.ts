@@ -7,7 +7,9 @@
  *    → Call POST /api/auth/refresh-token (HTTP-only cookie sent automatically)
  *    → Get a new access token
  *    → Retry the original request with the new token
- * 3. If refresh also fails → clear session, redirect to /login
+ * 3. If a 401 with code "SESSION_INVALIDATED" comes back:
+ *    → Another device logged in — clear session, redirect to /login?reason=session_expired
+ * 4. If refresh also fails → clear session, redirect to /login
  *
  * In development, Vite proxies /api → http://localhost:5000, so no CORS issues.
  * In production, set VITE_API_URL to your backend URL in .env.
@@ -44,9 +46,19 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
+    const code = error.response?.data?.code;
+
+    // ── Session invalidated — logged in from another device ──────────────────
+    if (error.response?.status === 401 && code === "SESSION_INVALIDATED") {
+      sessionStorage.removeItem("accessToken");
+      window.location.href = "/login?reason=session_expired";
+      return Promise.reject(error);
+    }
+
+    // ── Access token expired — try to refresh ────────────────────────────────
     const isExpired =
       error.response?.status === 401 &&
-      error.response?.data?.code === "TOKEN_EXPIRED" &&
+      code === "TOKEN_EXPIRED" &&
       !original._retry;
 
     if (!isExpired) return Promise.reject(error);
