@@ -1,0 +1,491 @@
+const crypto = require("crypto");
+const Test = require("../models/Test");
+const Exam = require("../models/Exam");
+const TestAttempt = require("../models/TestAttempt");
+const AIChatSession = require("../models/AIChatSession");
+const { createStructuredResponse } = require("./openaiService");
+const {
+  computeAttemptAnalytics,
+  computeStudentAnalytics,
+  buildRecommendationSeed,
+  buildPrediction,
+} = require("./learningAnalyticsService");
+const { resolveCorrectAnswer, serializeAnswer, toPlainOptions } = require("./scoringService");
+const {
+  analyzeTestSchema,
+  chatSchema,
+  parsedQuestionsSchema,
+  generatedQuestionsSchema,
+  studyPlanSchema,
+  predictionNarrativeSchema,
+} = require("./aiSchemas");
+const { stripHtml, truncateText } = require("../utils/plainText");
+
+const DEFAULT_MODELS = {
+  analysis: process.env.OPENAI_MODEL_ANALYSIS || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
+  chat: process.env.OPENAI_MODEL_CHAT || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
+  parser: process.env.OPENAI_MODEL_PARSER || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
+  questions: process.env.OPENAI_MODEL_QUESTION_GENERATION || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
+  summary: process.env.OPENAI_MODEL_SUMMARY || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
+};
+
+const chunkArray = (items = [], chunkSize = 6) => {
+  const chunks = [];
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize));
+  }
+  return chunks;
+};
+
+const normalizeQuestionForAI = (question, index, answer) => ({
+  questionId: String(question._id || question.id || index),
+  order: index + 1,
+  subject: question.subject || "General",
+  difficulty: question.difficulty || "unspecified",
+  question: stripHtml(question.question || ""),
+  options: toPlainOptions(question.options || []),
+  studentAnswer: serializeAnswer(question, answer, question.options || []),
+  correctAnswer: resolveCorrectAnswer(question, question.options || []),
+  explanation: stripHtml(question.explanation || ""),
+});
+
+const mergeCustomQuestions = (questions = [], correctAnswers = []) =>
+  questions.map((question, index) => {
+    const providedCorrectAnswer = correctAnswers?.[index] ?? correctAnswers?.[String(index)];
+
+    if (question.questionType === "multiple") {
+      const normalizedCorrectAnswers = Array.isArray(providedCorrectAnswer)
+        ? providedCorrectAnswer.map((value) => Number(value))
+        : Array.isArray(question.correctAnswers)
+          ? question.correctAnswers.map((value) => Number(value))
+          : [];
+
+      return {
+        ...question,
+        correctAnswers: normalizedCorrectAnswers,
+        correctAnswer: normalizedCorrectAnswers[0] ?? question.correctAnswer ?? 0,
+      };
+    }
+
+    if (question.questionType === "written") {
+      return {
+        ...question,
+        writtenAnswer:
+          typeof providedCorrectAnswer === "string"
+            ? providedCorrectAnswer
+            : question.writtenAnswer || "",
+      };
+    }
+
+    return {
+      ...question,
+      correctAnswer:
+        providedCorrectAnswer !== undefined
+          ? Number(providedCorrectAnswer)
+          : Number(question.correctAnswer ?? 0),
+      correctAnswers:
+        Array.isArray(question.correctAnswers) && question.correctAnswers.length
+          ? question.correctAnswers.map((value) => Number(value))
+          : [Number(providedCorrectAnswer ?? question.correctAnswer ?? 0)],
+    };
+  });
+
+const resolveAttemptPayload = async (payload = {}) => {
+  const { testId, questions, correctAnswers, answers = {}, perQuestionTimes = [], timeTaken } = payload;
+
+  if (testId) {
+    const test = await Test.findById(testId).populate("questions").lean();
+    if (!test) {
+      const error = new Error("Test not found");
+      error.status = 404;
+      throw error;
+    }
+
+    const exam = await Exam.findOne({ slug: test.exam }).lean();
+    return {
+      testId: String(testId),
+      testTitle: test.title || "Practice Test",
+      examId: test.exam || "",
+      questions: test.questions || [],
+      answers,
+      exam,
+      perQuestionTimes,
+      timeTaken: Number(timeTaken || 0),
+    };
+  }
+
+  return {
+    testId: "",
+    testTitle: "Custom Analysis",
+    examId: "",
+    questions: mergeCustomQuestions(Array.isArray(questions) ? questions : [], correctAnswers || []),
+    answers,
+    exam: null,
+    perQuestionTimes,
+    timeTaken: Number(timeTaken || 0),
+  };
+};
+
+const generateQuestionInsights = async (questions = [], answers = {}) => {
+  const normalizedQuestions = questions.map((question, index) =>
+    normalizeQuestionForAI(question, index, answers?.[index] ?? answers?.[String(index)] ?? null)
+  );
+
+  const responses = [];
+  for (const chunk of chunkArray(normalizedQuestions, 5)) {
+    const result = await createStructuredResponse({
+      model: DEFAULT_MODELS.analysis,
+      schemaName: "test_analysis_chunk",
+      schema: analyzeTestSchema,
+      maxOutputTokens: 2400,
+      instructions:
+        "You are an exam coach. Return concise JSON only. Create student-friendly step-by-step solutions. Keep each step short, practical, and faithful to the question. For wrong option reasons, explain why each incorrect choice fails. If a question has limited context, say what assumption was used.",
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: JSON.stringify({ questions: chunk }),
+            },
+          ],
+        },
+      ],
+    });
+    responses.push(result);
+  }
+
+  return {
+    summary: responses.map((item) => item.summary).filter(Boolean).join(" ").trim(),
+    improvementSuggestions: [...new Set(responses.flatMap((item) => item.improvementSuggestions || []).filter(Boolean))].slice(0, 6),
+    questionInsights: responses.flatMap((item) => item.questionInsights || []),
+  };
+};
+
+const analyzeTest = async (payload) => {
+  const attempt = await resolveAttemptPayload(payload);
+  if (!attempt.questions.length) {
+    const error = new Error("questions or testId is required");
+    error.status = 400;
+    throw error;
+  }
+
+  const analytics = computeAttemptAnalytics({
+    questions: attempt.questions,
+    answers: attempt.answers,
+    exam: attempt.exam,
+    perQuestionTimes: attempt.perQuestionTimes,
+    totalTimeSeconds: attempt.timeTaken,
+  });
+
+  const aiOutput = await generateQuestionInsights(attempt.questions, attempt.answers);
+  const questionInsightMap = new Map((aiOutput.questionInsights || []).map((item) => [String(item.questionId), item]));
+
+  return {
+    testId: attempt.testId,
+    testTitle: attempt.testTitle,
+    examId: attempt.examId,
+    totalScore: analytics.summary.score,
+    totalMarks: analytics.summary.totalMarks,
+    accuracyPercentage: analytics.summary.accuracy,
+    topicWisePerformance: analytics.topicPerformance,
+    difficultyPerformance: analytics.difficultyPerformance,
+    strongTopics: analytics.strongTopics,
+    weakTopics: analytics.weakTopics,
+    timeAnalysis: analytics.timeAnalysis,
+    improvementSuggestions: aiOutput.improvementSuggestions || [],
+    aiSummary: aiOutput.summary || "",
+    questionBreakdown: analytics.snapshots.map((snapshot) => {
+      const insight = questionInsightMap.get(String(snapshot.questionId));
+      return {
+        ...snapshot,
+        solutionSteps: insight?.solutionSteps || [],
+        simpleExplanation: insight?.simpleExplanation || snapshot.explanation || "",
+        wrongOptionReasons: insight?.wrongOptionReasons || [],
+      };
+    }),
+  };
+};
+
+const buildQuestionContextBlock = (context = {}) => {
+  if (!context?.question && !context?.topic) return null;
+
+  return {
+    question: stripHtml(context.question || ""),
+    topic: context.topic || "",
+    selectedAnswer: context.selectedAnswer,
+    correctAnswer: context.correctAnswer,
+    options: Array.isArray(context.options)
+      ? context.options.map((option, index) => ({
+          key: String.fromCharCode(65 + index),
+          text: stripHtml(typeof option === "string" ? option : option?.text || ""),
+        }))
+      : [],
+    explanation: stripHtml(context.explanation || ""),
+  };
+};
+
+const chatWithAssistant = async ({ userId, sessionId, message, context = {}, memory = true }) => {
+  if (!message?.trim()) {
+    const error = new Error("message is required");
+    error.status = 400;
+    throw error;
+  }
+
+  const resolvedSessionId = sessionId || crypto.randomUUID();
+  const questionContext = buildQuestionContextBlock(context);
+  let chatSession = null;
+
+  if (memory) {
+    chatSession = await AIChatSession.findOne({ userId, sessionId: resolvedSessionId });
+  }
+
+  const recentMessages = (chatSession?.messages || []).slice(-8).map((item) => ({
+    role: item.role,
+    content: [{ type: "input_text", text: item.content }],
+  }));
+
+  const response = await createStructuredResponse({
+    model: DEFAULT_MODELS.chat,
+    schemaName: "student_chat_response",
+    schema: chatSchema,
+    maxOutputTokens: 850,
+    instructions:
+      "You are a patient study assistant for competitive exams. Explain answers simply, correct misconceptions directly, and prefer short paragraphs or bullets. If question context exists, use it. Do not mention that you are reading JSON.",
+    input: [
+      ...recentMessages,
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: JSON.stringify({
+              questionContext,
+              userMessage: message.trim(),
+            }),
+          },
+        ],
+      },
+    ],
+  });
+
+  if (memory) {
+    const nextSession =
+      chatSession ||
+      new AIChatSession({
+        userId,
+        sessionId: resolvedSessionId,
+        messages: [],
+      });
+
+    nextSession.messages.push(
+      { role: "user", content: message.trim() },
+      { role: "assistant", content: response.reply || "" }
+    );
+    if (!nextSession.title) {
+      nextSession.title = truncateText(message.trim(), 60);
+    }
+    await nextSession.save();
+  }
+
+  return {
+    sessionId: resolvedSessionId,
+    reply: response.reply || "",
+    suggestedPrompts: response.suggestedPrompts || [],
+  };
+};
+
+const parseQuestionsFromExtractedText = async ({ extractedText }) => {
+  if (!extractedText?.trim()) {
+    const error = new Error("No OCR text could be extracted from the image");
+    error.status = 400;
+    throw error;
+  }
+
+  const response = await createStructuredResponse({
+    model: DEFAULT_MODELS.parser,
+    schemaName: "ocr_parsed_questions",
+    schema: parsedQuestionsSchema,
+    maxOutputTokens: 2200,
+    instructions:
+      "Convert OCR text into exam questions. Return only the questions you can confidently parse. Normalize option labels into A, B, C, D. If no answer key exists in the OCR text, set correctAnswer to an empty string.",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: extractedText,
+          },
+        ],
+      },
+    ],
+  });
+
+  return response.questions || [];
+};
+
+const buildAnalyticsSummary = async (analytics) =>
+  createStructuredResponse({
+    model: DEFAULT_MODELS.summary,
+    schemaName: "analytics_summary",
+    schema: studyPlanSchema,
+    maxOutputTokens: 500,
+    instructions:
+      "You are summarizing a student's exam analytics. Keep the summary short, direct, and student-friendly. The studyPlan array should contain 3 to 5 concrete next actions.",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: JSON.stringify({
+              averageAccuracy: analytics.averageAccuracy,
+              strongTopics: analytics.strongTopics,
+              weakTopics: analytics.weakTopics,
+              weakestTopicsRanking: analytics.weakestTopicsRanking,
+              progressOverTime: analytics.progressOverTime.slice(-5),
+            }),
+          },
+        ],
+      },
+    ],
+  });
+
+const getStudentAnalytics = async ({ studentId }) => {
+  const attempts = await TestAttempt.find({ userId: studentId, status: "COMPLETED" })
+    .sort({ completedAt: 1, startedAt: 1 })
+    .lean();
+
+  const analytics = computeStudentAnalytics(attempts);
+  const aiSummary = analytics.attemptCount ? await buildAnalyticsSummary(analytics) : { summary: "", studyPlan: [] };
+
+  return {
+    ...analytics,
+    aiSummary: aiSummary.summary || "",
+    aiStudyPlan: aiSummary.studyPlan || [],
+  };
+};
+
+const getRecommendations = async ({ studentId, analytics: providedAnalytics = null }) => {
+  const analytics = providedAnalytics || (await getStudentAnalytics({ studentId }));
+  const seed = buildRecommendationSeed(analytics);
+
+  const aiPlan = await createStructuredResponse({
+    model: DEFAULT_MODELS.summary,
+    schemaName: "recommendations_plan",
+    schema: studyPlanSchema,
+    maxOutputTokens: 500,
+    instructions:
+      "Generate a short personalized study summary and a compact study plan. Focus on revision topics, practice count, and the right difficulty progression.",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: JSON.stringify({
+              averageAccuracy: analytics.averageAccuracy,
+              weakTopics: analytics.weakTopics,
+              strongTopics: analytics.strongTopics,
+              recommendationSeed: seed,
+            }),
+          },
+        ],
+      },
+    ],
+  });
+
+  return {
+    topicsToRevise: seed.topicsToRevise,
+    practiceSuggestions: seed.practiceSuggestions,
+    difficultyAdjustment: seed.difficultyAdjustment,
+    studyPlan: aiPlan.studyPlan || [],
+    summary: aiPlan.summary || "",
+  };
+};
+
+const generateQuestions = async ({ topic, difficulty = "medium", numberOfQuestions = 5 }) => {
+  if (!topic?.trim()) {
+    const error = new Error("topic is required");
+    error.status = 400;
+    throw error;
+  }
+
+  const response = await createStructuredResponse({
+    model: DEFAULT_MODELS.questions,
+    schemaName: "generated_questions",
+    schema: generatedQuestionsSchema,
+    maxOutputTokens: 2600,
+    instructions:
+      "Generate exam-style multiple-choice questions with exactly four options labeled A to D. Keep one correct answer only. Difficulty must match the request. Explanations should be concise and useful for review.",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: JSON.stringify({
+              topic: topic.trim(),
+              difficulty,
+              numberOfQuestions: Math.max(1, Math.min(20, Number(numberOfQuestions || 5))),
+            }),
+          },
+        ],
+      },
+    ],
+  });
+
+  return response.questions || [];
+};
+
+const predictStudentPerformance = async ({ studentId, analytics: providedAnalytics = null }) => {
+  const analytics = providedAnalytics || (await getStudentAnalytics({ studentId }));
+  const benchmarkAttempts = await TestAttempt.find({ status: "COMPLETED" }).select("accuracy").lean();
+  const prediction = buildPrediction({
+    analytics,
+    benchmarkAccuracies: benchmarkAttempts.map((item) => Number(item.accuracy || 0)),
+  });
+
+  const aiNarrative = await createStructuredResponse({
+    model: DEFAULT_MODELS.summary,
+    schemaName: "prediction_narrative",
+    schema: predictionNarrativeSchema,
+    maxOutputTokens: 220,
+    instructions:
+      "Write one short prediction insight for a student. Mention likely next-test performance and the biggest improvement lever.",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: JSON.stringify({
+              currentAccuracy: prediction.currentAccuracy,
+              expectedAccuracy: prediction.expectedAccuracy,
+              futureScoreImprovement: prediction.futureScoreImprovement,
+              probabilityOfImprovement: prediction.probabilityOfImprovement,
+              weakTopics: analytics.weakTopics,
+              strongTopics: analytics.strongTopics,
+            }),
+          },
+        ],
+      },
+    ],
+  });
+
+  return {
+    ...prediction,
+    insight: aiNarrative.insight || "",
+  };
+};
+
+module.exports = {
+  analyzeTest,
+  chatWithAssistant,
+  parseQuestionsFromExtractedText,
+  getStudentAnalytics,
+  getRecommendations,
+  generateQuestions,
+  predictStudentPerformance,
+};
