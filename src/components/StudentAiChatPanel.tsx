@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { readApiErrorMessage } from "@/lib/apiError";
 import { toast } from "sonner";
 
 type ChatQuestion = {
@@ -113,7 +114,7 @@ export default function StudentAiChatPanel({ questions, answers }: StudentAiChat
       setSuggestedPrompts(data.suggestedPrompts || []);
     } catch (error) {
       setMessages((current) => current.slice(0, -1));
-      toast.error("AI chat request failed");
+      toast.error(readApiErrorMessage(error, "AI chat request failed"));
     } finally {
       setSubmitting(false);
     }

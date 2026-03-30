@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import api from '@/services/api';
+import { readApiErrorMessage } from '@/lib/apiError';
 import FormattedContent from '@/components/FormattedContent';
 import IntrinsicImage from '@/components/IntrinsicImage';
 import StudentAiChatPanel from '@/components/StudentAiChatPanel';
@@ -181,8 +182,8 @@ export default function ResultsPage() {
           perQuestionTimes: result.perQuestionTimes || [],
         });
         setAnalysis(data.analysis);
-      } catch {
-        toast.error('AI analysis failed');
+      } catch (fallbackError) {
+        toast.error(readApiErrorMessage(fallbackError, 'AI analysis failed'));
       }
     } finally {
       setAnalysisLoading(false);
