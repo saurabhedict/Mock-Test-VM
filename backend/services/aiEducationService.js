@@ -167,14 +167,14 @@ const generateQuestionInsights = async (questions = [], answers = {}) => {
   );
 
   const responses = [];
-  for (const chunk of chunkArray(normalizedQuestions, 5)) {
+  for (const chunk of chunkArray(normalizedQuestions, 3)) {
     const result = await createStructuredResponse({
       model: DEFAULT_MODELS.analysis,
       schemaName: "test_analysis_chunk",
       schema: analyzeTestSchema,
       maxOutputTokens: 2400,
       instructions:
-        "You are an exam coach. Return concise JSON only. Create student-friendly step-by-step solutions. Keep each step short, practical, and faithful to the question. For wrong option reasons, explain why each incorrect choice fails. If a question has limited context, say what assumption was used.",
+        "You are an exam coach. Return concise JSON only. Create student-friendly step-by-step solutions. Keep each step very short, practical, and faithful to the question. Limit each question to 2 to 4 solution steps and keep wrong-option reasons to one sentence each. If a question has limited context, say what assumption was used.",
       input: [
         {
           role: "user",
@@ -260,6 +260,28 @@ const buildQuestionContextBlock = (context = {}) => {
   };
 };
 
+const formatQuestionContextForPrompt = (questionContext) => {
+  if (!questionContext) {
+    return "Question context: none provided.";
+  }
+
+  const optionsBlock =
+    Array.isArray(questionContext.options) && questionContext.options.length
+      ? questionContext.options.map((option) => `${option.key}. ${option.text}`).join("\n")
+      : "No options provided.";
+
+  return [
+    "Question context:",
+    `Topic: ${questionContext.topic || "Unknown"}`,
+    `Question: ${questionContext.question || "Not provided"}`,
+    "Options:",
+    optionsBlock,
+    `Student selected: ${questionContext.selectedAnswer || "Not answered"}`,
+    `Correct answer: ${questionContext.correctAnswer || "Not available"}`,
+    `Official explanation: ${questionContext.explanation || "Not available"}`,
+  ].join("\n");
+};
+
 const chatWithAssistant = async ({ userId, sessionId, message, context = {}, memory = true }) => {
   if (!message?.trim()) {
     const error = new Error("message is required");
@@ -294,10 +316,11 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
         content: [
           {
             type: "input_text",
-            text: JSON.stringify({
-              questionContext,
-              userMessage: message.trim(),
-            }),
+            text: [
+              `Student message: ${message.trim()}`,
+              "",
+              formatQuestionContextForPrompt(questionContext),
+            ].join("\n"),
           },
         ],
       },

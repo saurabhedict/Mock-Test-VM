@@ -1,8 +1,22 @@
-import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, BarChart3, Target, Clock, ArrowLeft, ChevronDown, ChevronUp, Brain, Loader2, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  Activity,
+  ArrowLeft,
+  BarChart3,
+  Brain,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
+  Loader2,
+  Sparkles,
+  Target,
+  XCircle,
+  Zap,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import api from '@/services/api';
@@ -48,7 +62,7 @@ interface ResultData {
   timeTaken: number;
   perQuestionTimes?: number[];
   subjects?: ExamSubjectMarkingRule[];
-  submissionStatus?: "COMPLETED" | "AUTO_SUBMITTED";
+  submissionStatus?: 'COMPLETED' | 'AUTO_SUBMITTED';
   autoSubmitReason?: string | null;
   summary?: {
     score: number;
@@ -58,6 +72,82 @@ interface ResultData {
     unanswered: number;
     totalMarks: number;
   };
+}
+
+const particles = [
+  { left: '9%', top: '18%', delay: 0 },
+  { left: '24%', top: '72%', delay: 0.5 },
+  { left: '41%', top: '27%', delay: 1.1 },
+  { left: '58%', top: '78%', delay: 1.7 },
+  { left: '74%', top: '22%', delay: 0.3 },
+  { left: '88%', top: '62%', delay: 1.2 },
+];
+
+const formatTime = (seconds = 0) => {
+  const safe = Math.max(0, Math.round(seconds));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  if (!mins) return `${secs}s`;
+  if (!secs) return `${mins}m`;
+  return `${mins}m ${secs}s`;
+};
+
+const optionText = (option: any) => (typeof option === 'string' ? option : option?.text || '');
+
+function RingCard({
+  label,
+  value,
+  from,
+  to,
+}: {
+  label: string;
+  value: number;
+  from: string;
+  to: string;
+}) {
+  const radius = 44;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.max(0, Math.min(100, value));
+
+  return (
+    <motion.div
+      whileHover={{ y: -4, rotateX: 3, rotateY: -3 }}
+      className="ai-glass-panel rounded-[28px] border border-white/10 bg-white/[0.04] p-5"
+    >
+      <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">{label}</div>
+      <div className="flex items-center gap-4">
+        <div className="relative h-28 w-28 shrink-0">
+          <svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-90">
+            <defs>
+              <linearGradient id={`ring-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={from} />
+                <stop offset="100%" stopColor={to} />
+              </linearGradient>
+            </defs>
+            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
+            <motion.circle
+              cx="60"
+              cy="60"
+              r={radius}
+              fill="none"
+              stroke={`url(#ring-${label})`}
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset: circumference - (progress / 100) * circumference }}
+              transition={{ duration: 1.1, ease: 'easeOut' }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className="text-2xl font-display font-semibold text-white">{Math.round(progress)}%</div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Live</div>
+          </div>
+        </div>
+        <p className="text-sm leading-7 text-white/60">AI uses this signal to shape the study report and coaching prompts.</p>
+      </div>
+    </motion.div>
+  );
 }
 
 export default function ResultsPage() {
@@ -70,11 +160,13 @@ export default function ResultsPage() {
   const raw = localStorage.getItem(`result_${testId}`);
   if (!raw) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="dark min-h-screen ai-dashboard-shell text-white">
         <Header />
-        <div className="container py-20 text-center">
-          <h1 className="text-2xl font-display font-bold text-foreground">No results found</h1>
-          <Link to="/exams" className="mt-4 inline-block text-primary hover:underline">Back to Exams</Link>
+        <div className="container py-24 text-center">
+          <h1 className="text-3xl font-display font-semibold text-white">No results found</h1>
+          <Link to="/exams" className="mt-4 inline-block text-sm text-[#8defff] hover:text-white">
+            Back to Exams
+          </Link>
         </div>
       </div>
     );
@@ -89,10 +181,7 @@ export default function ResultsPage() {
       try {
         const { data } = await api.get(`/tests/${testId}`);
         const latestQuestions = new Map(
-          (data.questions || []).map((question: Question & { _id?: string }) => [
-            question._id || question.id,
-            question,
-          ]),
+          (data.questions || []).map((question: Question & { _id?: string }) => [question._id || question.id, question]),
         );
 
         if (cancelled) return;
@@ -127,12 +216,11 @@ export default function ResultsPage() {
           return nextResult;
         });
       } catch {
-        // Keep the locally saved result if the latest fetch fails.
+        // Keep local result if fetch fails.
       }
     };
 
     hydrateLatestQuestionData();
-
     return () => {
       cancelled = true;
     };
@@ -141,26 +229,62 @@ export default function ResultsPage() {
   const { questions, answers } = result;
   const subjectRules = result.subjects || [];
   const summary = result.summary || calculateScoreSummary(questions, answers, subjectRules);
+  const accuracy = summary.correct + summary.wrong > 0 ? Math.round((summary.correct / (summary.correct + summary.wrong)) * 100) : 0;
+  const attempted = questions.length - summary.unanswered;
+  const completion = questions.length > 0 ? Math.round((attempted / questions.length) * 100) : 0;
+  const avgTime = questions.length > 0 ? Math.round(result.timeTaken / questions.length) : 0;
 
   const subjectScores: Record<string, { correct: number; total: number; attempted: number }> = {};
-
-  questions.forEach((q, i) => {
-    const sub = q.subject;
-    if (!subjectScores[sub]) subjectScores[sub] = { correct: 0, total: 0, attempted: 0 };
-    subjectScores[sub].total++;
-
-    const ans = answers[i];
-    if (!isAnswered(q, ans)) {
-    } else if (isCorrectAnswer(q, ans)) {
-      subjectScores[sub].correct++;
-      subjectScores[sub].attempted++;
-    } else {
-      subjectScores[sub].attempted++;
-    }
+  questions.forEach((question, index) => {
+    const subject = question.subject || 'General';
+    if (!subjectScores[subject]) subjectScores[subject] = { correct: 0, total: 0, attempted: 0 };
+    subjectScores[subject].total += 1;
+    const answer = answers[index];
+    if (!isAnswered(question, answer)) return;
+    subjectScores[subject].attempted += 1;
+    if (isCorrectAnswer(question, answer)) subjectScores[subject].correct += 1;
   });
 
-  const accuracy = summary.correct + summary.wrong > 0 ? Math.round((summary.correct / (summary.correct + summary.wrong)) * 100) : 0;
-  const timeMins = Math.floor(result.timeTaken / 60);
+  const analyticsBars =
+    analysis?.topicWisePerformance?.length
+      ? analysis.topicWisePerformance.map((item) => ({
+          label: item.topic,
+          accuracy: item.accuracy,
+          detail: `${item.correct}/${item.total} correct`,
+        }))
+      : Object.entries(subjectScores).map(([label, data]) => ({
+          label,
+          accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
+          detail: `${data.correct}/${data.total} correct`,
+        }));
+
+  const heatmap = questions.map((question, index) => {
+    const answer = answers[index];
+    const score = getQuestionScore(question, answer, subjectRules);
+    const answered = isAnswered(question, answer);
+    const correct = isCorrectAnswer(question, answer);
+    let tone = 'linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))';
+    let label = 'Open';
+    if (answered && correct) {
+      tone = 'linear-gradient(135deg,rgba(0,229,255,0.28),rgba(138,43,226,0.16))';
+      label = 'Lock';
+    } else if (answered && score.score > 0) {
+      tone = 'linear-gradient(135deg,rgba(255,122,24,0.3),rgba(138,43,226,0.14))';
+      label = 'Part';
+    } else if (answered) {
+      tone = 'linear-gradient(135deg,rgba(255,90,90,0.3),rgba(255,122,24,0.12))';
+      label = 'Miss';
+    }
+    return {
+      order: index + 1,
+      tone,
+      label,
+      timeSpentSeconds: result.perQuestionTimes?.[index] || analysis?.questionBreakdown.find((item) => item.order === index + 1)?.timeSpentSeconds || 0,
+    };
+  });
+
+  const speedValue = avgTime > 0 ? Math.max(0, Math.min(100, Math.round((1 - Math.min(avgTime, 180) / 180) * 100))) : 0;
+  const gaugeRotation = -110 + (speedValue / 100) * 220;
 
   const runAiAnalysis = async () => {
     setAnalysisLoading(true);
@@ -173,7 +297,6 @@ export default function ResultsPage() {
       });
       setAnalysis(data.analysis);
     } catch {
-      // Fall back to sending the current result payload if the backend cannot resolve the test.
       try {
         const { data } = await api.post('/analyze-test', {
           questions: result.questions,
@@ -191,330 +314,434 @@ export default function ResultsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <div className="container py-12 max-w-4xl">
-        <Link to="/exams" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6">
-          <ArrowLeft className="h-4 w-4" /> Back to Exams
-        </Link>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
-          <h1 className="text-3xl font-display font-bold text-foreground">Test Results</h1>
-          <p className="text-muted-foreground mt-1">Here's how you performed</p>
-        </motion.div>
-
-        {result.submissionStatus === 'AUTO_SUBMITTED' && (
-          <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-100">
-            <strong className="font-semibold">This attempt was auto-submitted.</strong>{' '}
-            {result.autoSubmitReason || 'A monitored exam rule was triggered during the attempt.'}
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          {[
-            { label: 'Score', value: `${summary.score}/${summary.totalMarks}`, icon: Target, color: 'text-primary' },
-            { label: 'Correct', value: summary.correct, icon: CheckCircle2, color: 'text-status-answered' },
-            { label: 'Partial', value: summary.partial, icon: Target, color: 'text-amber-600' },
-            { label: 'Wrong', value: summary.wrong, icon: XCircle, color: 'text-status-not-answered' },
-            { label: 'Accuracy', value: `${accuracy}%`, icon: BarChart3, color: 'text-primary' },
-          ].map((item, i) => (
-            <motion.div
-              key={item.label}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className="rounded-xl border border-border bg-card p-5 text-center shadow-card"
-            >
-              <item.icon className={`h-6 w-6 mx-auto mb-2 ${item.color}`} />
-              <div className="text-2xl font-display font-bold text-foreground">{item.value}</div>
-              <div className="text-xs text-muted-foreground mt-1">{item.label}</div>
-            </motion.div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
-          <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-            <div className="text-sm text-muted-foreground">Unanswered</div>
-            <div className="text-xl font-bold text-foreground">{summary.unanswered}</div>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-            <div className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Time Taken</div>
-            <div className="text-xl font-bold text-foreground">{timeMins} min</div>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-            <div className="text-sm text-muted-foreground">Total Questions</div>
-            <div className="text-xl font-bold text-foreground">{questions.length}</div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-6 shadow-card mb-10">
-          <h2 className="text-lg font-display font-semibold text-foreground mb-4">Subject-wise Breakdown</h2>
-          <div className="space-y-3">
-            {Object.entries(subjectScores).map(([subject, data]) => {
-              const pct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
-              return (
-                <div key={subject}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-foreground">{subject}</span>
-                    <span className="text-sm text-muted-foreground">{data.correct}/{data.total} ({pct}%)</span>
-                  </div>
-                  <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                    <motion.div className="h-full rounded-full bg-primary" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, delay: 0.3 }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mb-10 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-background to-emerald-50/60 p-6 shadow-card">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="max-w-2xl">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-                <Brain className="h-3.5 w-3.5" />
-                Student AI Analysis
-              </div>
-              <h2 className="text-2xl font-display font-bold text-foreground">Turn this attempt into a study report</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Generate topic-wise diagnosis, speed analysis, improvement suggestions, and question-by-question solution coaching.
-              </p>
-            </div>
-            <Button onClick={runAiAnalysis} disabled={analysisLoading} className="min-w-52">
-              {analysisLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              {analysis ? 'Refresh AI Analysis' : 'Analyze Test'}
-            </Button>
-          </div>
-
-          {analysis && (
-            <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="space-y-4">
-                <div className="rounded-2xl border bg-card p-5">
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">AI Summary</div>
-                  <p className="mt-3 text-sm leading-7 text-foreground">{analysis.aiSummary}</p>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border bg-card p-5">
-                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Strong Topics</div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {analysis.strongTopics.length > 0 ? analysis.strongTopics.map((topic) => (
-                        <span key={topic} className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                          {topic}
-                        </span>
-                      )) : <span className="text-sm text-muted-foreground">No strong-topic signal yet.</span>}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border bg-card p-5">
-                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Weak Topics</div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {analysis.weakTopics.length > 0 ? analysis.weakTopics.map((topic) => (
-                        <span key={topic} className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                          {topic}
-                        </span>
-                      )) : <span className="text-sm text-muted-foreground">No weak-topic signal yet.</span>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border bg-card p-5">
-                  <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Topic Accuracy</div>
-                  <div className="space-y-3">
-                    {analysis.topicWisePerformance.map((topic) => (
-                      <div key={topic.topic}>
-                        <div className="mb-1 flex items-center justify-between text-sm">
-                          <span className="font-medium text-foreground">{topic.topic}</span>
-                          <span className="text-muted-foreground">{topic.correct}/{topic.total} • {topic.accuracy}%</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-muted">
-                          <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(topic.accuracy, 100)}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="rounded-2xl border bg-card p-5">
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Time Analysis</div>
-                  <div className="mt-3 space-y-3 text-sm">
-                    <div className="rounded-xl bg-muted/50 p-3">
-                      Average time per question: <strong>{analysis.timeAnalysis.averageTimeSeconds || 0}s</strong>
-                    </div>
-                    <div>
-                      <div className="mb-2 font-medium text-foreground">Slow Questions</div>
-                      <div className="space-y-2">
-                        {analysis.timeAnalysis.slowQuestions.length > 0 ? analysis.timeAnalysis.slowQuestions.map((question) => (
-                          <div key={question.questionId} className="rounded-xl bg-muted/50 p-3 text-xs">
-                            <div className="font-semibold text-foreground">Q{question.order} • {question.timeSpentSeconds}s</div>
-                            <div className="mt-1 text-muted-foreground">{question.questionPreview}</div>
-                          </div>
-                        )) : <div className="text-muted-foreground">Per-question timing was not available.</div>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border bg-card p-5">
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Improvement Suggestions</div>
-                  <div className="mt-3 space-y-2">
-                    {analysis.improvementSuggestions.map((suggestion) => (
-                      <div key={suggestion} className="rounded-xl bg-muted/50 p-3 text-sm text-foreground">
-                        {suggestion}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mb-10">
-          <StudentAiChatPanel questions={questions} answers={answers} />
-        </div>
-
-        <div className="mb-10">
-          <Button variant="outline" className="gap-2" onClick={() => setShowReview(!showReview)}>
-            {showReview ? 'Hide' : 'Show'} Answer Review
-            {showReview ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-
-          {showReview && (
-            <div className="mt-4 space-y-3">
-              {questions.map((q, i) => {
-                const userAns = answers[i];
-                const answeredCorrectly = isCorrectAnswer(q, userAns);
-                const unansweredQuestion = !isAnswered(q, userAns);
-                const aiQuestion = analysis?.questionBreakdown.find((item) => item.questionId === q.id || item.order === i + 1);
-
-                return (
-                  <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-card">
-                    <button className="w-full text-left" onClick={() => setExpandedQ(expandedQ === i ? null : i)}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-primary-foreground ${
-                            unansweredQuestion ? 'bg-muted text-muted-foreground' : answeredCorrectly ? 'bg-status-answered' : 'bg-status-not-answered'
-                          }`}>
-                            {i + 1}
-                          </span>
-                          <div className="space-y-2">
-                            <FormattedContent html={q.question} className="text-sm text-foreground" />
-                            {q.questionImage && <img src={q.questionImage} alt="Q" className="max-h-40 rounded border shadow-sm" />}
-                          </div>
-                        </div>
-                        {expandedQ === i ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                      </div>
-                    </button>
-
-                    {expandedQ === i && (
-                      <div className="mt-3 ml-9 space-y-2">
-                        {q.questionType === 'written' ? (
-                          <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                            <div><strong>Your answer:</strong> {typeof userAns === 'string' && userAns.trim() ? userAns : 'Not answered'}</div>
-                            <div className="mt-2">
-                              <strong>Correct answer:</strong>
-                              {q.writtenAnswer?.trim() ? (
-                                <FormattedContent html={q.writtenAnswer} className="mt-2 text-sm text-foreground" />
-                              ) : (
-                                <span> -</span>
-                              )}
-                            </div>
-                          </div>
-                        ) : q.options.map((option, oi) => {
-                          const optText = typeof option === 'string' ? option : option.text;
-                          const optImg = typeof option === 'string' ? null : option.imageUrl;
-                          const isCorrectOption = q.questionType === 'multiple'
-                            ? (q.correctAnswers || []).includes(oi)
-                            : oi === q.correctAnswer;
-                          const isUserChoice = q.questionType === 'multiple'
-                            ? Array.isArray(userAns) && userAns.includes(oi)
-                            : oi === userAns;
-
-                          return (
-                            <div key={oi} className={`rounded-lg px-3 py-2 text-sm ${
-                              isCorrectOption ? 'bg-status-answered/10 text-foreground border border-status-answered/30' :
-                              isUserChoice && !answeredCorrectly ? 'bg-status-not-answered/10 text-foreground border border-status-not-answered/30' :
-                              'bg-muted/50 text-muted-foreground'
-                            }`}>
-                              <div className="flex flex-col gap-2">
-                                <div className="space-y-1">
-                                  <div className="font-bold">{String.fromCharCode(65 + oi)}.</div>
-                                  <FormattedContent html={optText} className="text-sm text-current" />
-                                  {isCorrectOption && <span className="text-xs font-bold text-status-answered uppercase">Correct</span>}
-                                  {isUserChoice && !answeredCorrectly && <span className="text-xs font-bold text-status-not-answered uppercase">Your answer</span>}
-                                </div>
-                                {optImg && (
-                                  <IntrinsicImage
-                                    src={optImg}
-                                    alt="Opt"
-                                    loading="lazy"
-                                    trimWhitespace
-                                    className="border"
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                          {(() => {
-                            const { positiveMarks, negativeMarks } = getQuestionMarking(q, subjectRules);
-                            const questionScore = getQuestionScore(q, userAns, subjectRules);
-                            const modeText =
-                              q.questionType === 'multiple'
-                                ? ` • Mode: ${(q.multipleCorrectScoringMode || 'full_only').replace(/_/g, ' ')}`
-                                : '';
-                            return `Marking: +${positiveMarks} for correct, -${negativeMarks} for wrong${modeText} • Score earned: ${questionScore.score}`;
-                          })()}
-                        </div>
-                        <div className="mt-2 rounded-lg bg-accent p-3 text-xs text-accent-foreground">
-                          <strong>Explanation:</strong>
-                          <FormattedContent html={q.explanation} className="mt-2 text-xs text-accent-foreground" />
-                          {q.explanationImage && (
-                            <img
-                              src={q.explanationImage}
-                              alt="Solution explanation"
-                              className="mt-3 max-h-80 w-auto rounded-lg border bg-white"
-                            />
-                          )}
-                        </div>
-                        {aiQuestion && (
-                          <div className="rounded-lg border border-primary/20 bg-primary/[0.05] p-3 text-xs text-foreground">
-                            <div className="mb-2 flex items-center gap-2 font-semibold text-primary">
-                              <Brain className="h-3.5 w-3.5" />
-                              AI Solution Guide
-                            </div>
-                            {aiQuestion.solutionSteps.length > 0 && (
-                              <ol className="list-decimal space-y-1 pl-4">
-                                {aiQuestion.solutionSteps.map((step) => (
-                                  <li key={step}>{step}</li>
-                                ))}
-                              </ol>
-                            )}
-                            {aiQuestion.simpleExplanation && (
-                              <p className="mt-3 rounded-lg bg-background/70 p-3 leading-6">{aiQuestion.simpleExplanation}</p>
-                            )}
-                            {aiQuestion.wrongOptionReasons.length > 0 && (
-                              <div className="mt-3 space-y-2">
-                                {aiQuestion.wrongOptionReasons.map((reason) => (
-                                  <div key={`${aiQuestion.questionId}-${reason.optionKey}`} className="rounded-lg bg-background/70 p-3">
-                                    <strong>{reason.optionKey}:</strong> {reason.reason}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+    <div className="dark min-h-screen ai-dashboard-shell text-white">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="ai-grid-bg absolute inset-0 opacity-20" />
+        <div className="ai-noise-overlay absolute inset-0" />
+        <div className="absolute left-[8%] top-[-8%] h-80 w-80 rounded-full bg-[#ff7a18]/14 blur-3xl" />
+        <div className="absolute right-[10%] top-[8%] h-80 w-80 rounded-full bg-[#8a2be2]/14 blur-3xl" />
+        <div className="absolute bottom-[10%] left-[28%] h-96 w-96 rounded-full bg-[#00e5ff]/10 blur-3xl" />
+        {particles.map((particle) => (
+          <motion.span
+            key={`${particle.left}-${particle.top}`}
+            className="absolute h-1.5 w-1.5 rounded-full bg-white/55"
+            style={{ left: particle.left, top: particle.top }}
+            animate={{ y: [0, -20, 0], opacity: [0.2, 0.85, 0.2] }}
+            transition={{ duration: 5.2, repeat: Infinity, delay: particle.delay, ease: 'easeInOut' }}
+          />
+        ))}
       </div>
+
+      <Header />
+
+      <main className="relative z-10">
+        <div className="container max-w-7xl py-8 md:py-12">
+          <Link to="/exams" className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/68 hover:text-white">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Exams
+          </Link>
+
+          <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="ai-glass-panel rounded-[36px] border border-white/10 px-6 py-7 md:px-8 md:py-9">
+            <div className="grid gap-6 lg:grid-cols-[1.12fr_0.88fr] lg:items-center">
+              <div>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.32em] text-white/70">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#00e5ff] animate-[ai-pulse_1.6s_ease-in-out_infinite]" />
+                  Student AI Analysis
+                </div>
+                <h1 className="text-4xl font-display font-semibold leading-tight text-white md:text-5xl">
+                  Turn this attempt into a study report
+                </h1>
+                <p className="mt-4 max-w-2xl text-base leading-8 text-white/66 md:text-lg">
+                  Futuristic insights for topic accuracy, speed control, and next-step coaching.
+                </p>
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Button
+                    onClick={runAiAnalysis}
+                    disabled={analysisLoading}
+                    className="ai-glow-button h-14 rounded-2xl border-0 bg-[linear-gradient(135deg,#ff7a18,#ff9a3d_44%,#8a2be2_96%)] px-7 text-base font-semibold text-white hover:brightness-110"
+                  >
+                    {analysisLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    {analysis ? 'Refresh Analysis' : 'Analyze Test'}
+                  </Button>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white/68">
+                    AI coach is ready for question-by-question help once analysis is generated.
+                  </div>
+                </div>
+                {result.submissionStatus === 'AUTO_SUBMITTED' ? (
+                  <div className="mt-6 rounded-[24px] border border-[#ff7a18]/18 bg-[linear-gradient(135deg,rgba(255,122,24,0.14),rgba(255,255,255,0.04))] px-4 py-4 text-sm text-[#ffd4b0]">
+                    <strong className="font-semibold text-white">Auto-submitted attempt.</strong>{' '}
+                    {result.autoSubmitReason || 'A monitored exam rule was triggered during the attempt.'}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[
+                  { label: 'Score', value: `${summary.score}/${summary.totalMarks}`, sub: 'Net marks', icon: Target },
+                  { label: 'Accuracy', value: `${accuracy}%`, sub: 'Precision', icon: CheckCircle2 },
+                  { label: 'Completion', value: `${completion}%`, sub: `${attempted}/${questions.length} attempted`, icon: Activity },
+                  { label: 'Time', value: formatTime(result.timeTaken), sub: `${avgTime}s avg pace`, icon: Clock3 },
+                ].map((item, index) => (
+                  <motion.div key={item.label} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.08 }} className="ai-glass-panel rounded-[28px] border border-white/10 bg-white/[0.05] p-5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
+                        <item.icon className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="text-[11px] uppercase tracking-[0.28em] text-white/38">Live</div>
+                    </div>
+                    <div className="text-2xl font-display font-semibold text-white">{item.value}</div>
+                    <div className="mt-1 text-xs font-semibold uppercase tracking-[0.22em] text-white/42">{item.label}</div>
+                    <p className="mt-3 text-sm text-white/58">{item.sub}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </motion.section>
+
+          <section className="mt-8 grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+            <div className="grid gap-5">
+              <div className="grid gap-5 md:grid-cols-2">
+                <RingCard label="Accuracy Pulse" value={accuracy} from="#00e5ff" to="#8a2be2" />
+                <RingCard label="Completion Pulse" value={completion} from="#ff7a18" to="#8a2be2" />
+              </div>
+
+              <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+                <div className="mb-5 flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Analytics Preview</div>
+                    <h2 className="mt-2 text-2xl font-display font-semibold text-white">Topic field</h2>
+                  </div>
+                  <BarChart3 className="h-5 w-5 text-[#00e5ff]" />
+                </div>
+                <div className="space-y-4">
+                  {analyticsBars.slice(0, 6).map((item, index) => (
+                    <div key={item.label}>
+                      <div className="mb-2 flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-semibold text-white">{item.label}</div>
+                          <div className="text-xs text-white/48">{item.detail}</div>
+                        </div>
+                        <div className="text-sm font-semibold text-[#8defff]">{item.accuracy}%</div>
+                      </div>
+                      <div className="h-3 overflow-hidden rounded-full bg-white/[0.06]">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.max(6, Math.min(100, item.accuracy))}%` }}
+                          transition={{ duration: 0.75, delay: index * 0.08 }}
+                          className="h-full rounded-full bg-[linear-gradient(90deg,rgba(255,122,24,0.95),rgba(138,43,226,0.9) 55%,rgba(0,229,255,0.92))]"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {analysis?.strongTopics?.length || analysis?.weakTopics?.length ? (
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Strong Topics</div>
+                      <div className="flex flex-wrap gap-2">
+                        {analysis?.strongTopics?.length ? analysis.strongTopics.map((topic) => (
+                          <span key={topic} className="rounded-full border border-[#00e5ff]/20 bg-[#00e5ff]/10 px-3 py-1.5 text-xs font-medium text-[#9cecff]">{topic}</span>
+                        )) : <span className="text-sm text-white/50">No strong-topic signal yet.</span>}
+                      </div>
+                    </div>
+                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Weak Topics</div>
+                      <div className="flex flex-wrap gap-2">
+                        {analysis?.weakTopics?.length ? analysis.weakTopics.map((topic) => (
+                          <span key={topic} className="rounded-full border border-[#ff7a18]/20 bg-[#ff7a18]/10 px-3 py-1.5 text-xs font-medium text-[#ffc38d]">{topic}</span>
+                        )) : <span className="text-sm text-white/50">No weak-topic signal yet.</span>}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="grid gap-5">
+              <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+                <div className="mb-5 flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Speed Meter</div>
+                    <h2 className="mt-2 text-2xl font-display font-semibold text-white">Response velocity</h2>
+                  </div>
+                  <Zap className="h-5 w-5 text-[#ff7a18]" />
+                </div>
+                <div className="relative mx-auto flex h-60 max-w-sm items-center justify-center">
+                  <div className="absolute inset-x-8 bottom-7 h-40 rounded-t-full border border-white/10 border-b-0 bg-white/[0.03]" />
+                  <motion.div
+                    className="absolute bottom-10 h-24 w-1 rounded-full origin-bottom bg-[linear-gradient(180deg,#ffffff,#00e5ff,#8a2be2)] shadow-[0_0_20px_rgba(0,229,255,0.35)]"
+                    initial={{ rotate: '-110deg' }}
+                    animate={{ rotate: `${gaugeRotation}deg` }}
+                    transition={{ duration: 1.1, ease: 'easeOut' }}
+                  />
+                  <div className="absolute bottom-8 h-5 w-5 rounded-full bg-white shadow-[0_0_28px_rgba(255,255,255,0.45)]" />
+                  <div className="relative z-10 text-center">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/45">Speed Index</div>
+                    <div className="mt-3 text-5xl font-display font-semibold text-white">{speedValue}</div>
+                    <div className="mt-2 text-sm text-white/56">{avgTime}s average per question</div>
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Slow Signal</div>
+                    <div className="mt-2 text-sm font-semibold text-white">
+                      {analysis?.timeAnalysis?.slowQuestions?.[0] ? `Q${analysis.timeAnalysis.slowQuestions[0].order} • ${analysis.timeAnalysis.slowQuestions[0].timeSpentSeconds}s` : 'Run analysis'}
+                    </div>
+                  </div>
+                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Fast Signal</div>
+                    <div className="mt-2 text-sm font-semibold text-white">
+                      {analysis?.timeAnalysis?.fastQuestions?.[0] ? `Q${analysis.timeAnalysis.fastQuestions[0].order} • ${analysis.timeAnalysis.fastQuestions[0].timeSpentSeconds}s` : 'Waiting for timing map'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+                <div className="mb-5 flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Question Heatmap</div>
+                    <h2 className="mt-2 text-2xl font-display font-semibold text-white">Attempt intensity</h2>
+                  </div>
+                  <Activity className="h-5 w-5 text-[#00e5ff]" />
+                </div>
+                <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 xl:grid-cols-7">
+                  {heatmap.map((cell) => (
+                    <div key={cell.order} className="rounded-[22px] border border-white/10 px-3 py-4 text-center" style={{ background: cell.tone }}>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">Q{cell.order}</div>
+                      <div className="mt-3 text-sm font-semibold text-white">{cell.label}</div>
+                      <div className="mt-2 text-[11px] text-white/50">{cell.timeSpentSeconds ? `${cell.timeSpentSeconds}s` : 'No time'}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-8 grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
+            <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">AI Narrative</div>
+                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Study report layer</h2>
+                </div>
+                <Brain className="h-5 w-5 text-[#8a2be2]" />
+              </div>
+              {analysisLoading ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {[0, 1, 2, 3].map((item) => (
+                    <div key={item} className="ai-shimmer-track rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="h-3 w-28 rounded-full bg-white/10" />
+                      <div className="mt-4 h-5 rounded-full bg-white/10" />
+                      <div className="mt-2 h-5 w-10/12 rounded-full bg-white/10" />
+                    </div>
+                  ))}
+                </div>
+              ) : analysis ? (
+                <div className="grid gap-5">
+                  <div className="rounded-[26px] border border-white/10 bg-[linear-gradient(135deg,rgba(138,43,226,0.16),rgba(0,229,255,0.08))] p-5">
+                    <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Executive Summary</div>
+                    <p className="text-sm leading-7 text-white/82">{analysis.aiSummary || 'The AI summary will appear here after analysis.'}</p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-[26px] border border-white/10 bg-black/20 p-5">
+                      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Suggestions</div>
+                      <div className="space-y-2.5">
+                        {analysis.improvementSuggestions.length ? analysis.improvementSuggestions.map((suggestion) => (
+                          <div key={suggestion} className="rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-3 text-sm leading-6 text-white/76">{suggestion}</div>
+                        )) : <div className="text-sm text-white/50">No suggestions yet.</div>}
+                      </div>
+                    </div>
+                    <div className="rounded-[26px] border border-white/10 bg-black/20 p-5">
+                      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Difficulty Radar</div>
+                      <div className="space-y-3">
+                        {analysis.difficultyPerformance.length ? analysis.difficultyPerformance.map((difficulty) => (
+                          <div key={difficulty.difficulty}>
+                            <div className="mb-1 flex items-center justify-between text-sm">
+                              <span className="font-medium capitalize text-white">{difficulty.difficulty}</span>
+                              <span className="text-white/52">{difficulty.accuracy}%</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-white/[0.06]">
+                              <div className="h-full rounded-full bg-[linear-gradient(90deg,#00e5ff,#8a2be2,#ff7a18)]" style={{ width: `${Math.max(6, Math.min(100, difficulty.accuracy))}%` }} />
+                            </div>
+                          </div>
+                        )) : <div className="text-sm text-white/50">Difficulty split will appear after analysis.</div>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-[26px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm leading-7 text-white/58">
+                  Run the AI analysis to unlock topic diagnosis, timing signals, and smarter coaching prompts.
+                </div>
+              )}
+            </div>
+
+            <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Attempt Snapshot</div>
+                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Performance constellation</h2>
+                </div>
+                <Target className="h-5 w-5 text-[#ff7a18]" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[
+                  { label: 'Correct', value: summary.correct, icon: CheckCircle2, tone: 'text-[#8defff]' },
+                  { label: 'Wrong', value: summary.wrong, icon: XCircle, tone: 'text-[#ffb8b8]' },
+                  { label: 'Partial', value: summary.partial, icon: Sparkles, tone: 'text-[#ffc38d]' },
+                  { label: 'Open', value: summary.unanswered, icon: Clock3, tone: 'text-white/72' },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <item.icon className={`h-5 w-5 ${item.tone}`} />
+                      <div className="text-[11px] uppercase tracking-[0.24em] text-white/38">{item.label}</div>
+                    </div>
+                    <div className="text-3xl font-display font-semibold text-white">{item.value}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 space-y-3">
+                {Object.entries(subjectScores).slice(0, 5).map(([subject, data]) => {
+                  const score = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+                  return (
+                    <div key={subject} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                      <div className="mb-2 flex items-center justify-between text-sm">
+                        <span className="font-semibold text-white">{subject}</span>
+                        <span className="text-white/52">{data.correct}/{data.total}</span>
+                      </div>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
+                        <div className="h-full rounded-full bg-[linear-gradient(90deg,#ff7a18,#8a2be2,#00e5ff)]" style={{ width: `${Math.max(6, Math.min(100, score))}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-8">
+            <StudentAiChatPanel questions={questions} answers={answers} />
+          </section>
+
+          <section className="mt-8">
+            <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Answer Review</div>
+                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Question debrief</h2>
+                </div>
+                <Button variant="outline" className="h-12 rounded-2xl border-white/10 bg-white/[0.04] px-5 text-white hover:bg-white/[0.08] hover:text-white" onClick={() => setShowReview((current) => !current)}>
+                  {showReview ? 'Hide Review' : 'Show Review'}
+                  {showReview ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
+                </Button>
+              </div>
+
+              {showReview ? (
+                <div className="mt-6 space-y-4">
+                  {questions.map((question, index) => {
+                    const userAnswer = answers[index];
+                    const answeredCorrectly = isCorrectAnswer(question, userAnswer);
+                    const unansweredQuestion = !isAnswered(question, userAnswer);
+                    const scoreInfo = getQuestionScore(question, userAnswer, subjectRules);
+                    const aiQuestion = analysis?.questionBreakdown.find((item) => item.questionId === question.id || item.order === index + 1);
+
+                    let badge = 'Open';
+                    let badgeClass = 'border-white/10 bg-white/[0.05] text-white/70';
+                    if (!unansweredQuestion && answeredCorrectly) {
+                      badge = 'Correct';
+                      badgeClass = 'border-[#00e5ff]/20 bg-[#00e5ff]/10 text-[#9cecff]';
+                    } else if (!unansweredQuestion && scoreInfo.score > 0) {
+                      badge = 'Partial';
+                      badgeClass = 'border-[#ff7a18]/20 bg-[#ff7a18]/10 text-[#ffc38d]';
+                    } else if (!unansweredQuestion) {
+                      badge = 'Wrong';
+                      badgeClass = 'border-[#ff8f8f]/20 bg-[#ff5a5a]/10 text-[#ffb8b8]';
+                    }
+
+                    return (
+                      <div key={index} className="rounded-[28px] border border-white/10 bg-black/20 p-4">
+                        <button className="w-full text-left" onClick={() => setExpandedQ(expandedQ === index ? null : index)}>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-4">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-sm font-semibold text-white">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <div className={`mb-3 inline-flex rounded-full border px-3 py-1 text-xs font-medium ${badgeClass}`}>{badge}</div>
+                                <FormattedContent html={question.question} className="text-sm leading-7 text-white/82" />
+                                {question.questionImage ? <img src={question.questionImage} alt="Question" className="mt-3 max-h-48 rounded-2xl border border-white/10" /> : null}
+                              </div>
+                            </div>
+                            {expandedQ === index ? <ChevronUp className="mt-1 h-5 w-5 shrink-0 text-white/48" /> : <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-white/48" />}
+                          </div>
+                        </button>
+
+                        {expandedQ === index ? (
+                          <div className="mt-5 space-y-4 md:ml-14">
+                            {question.questionType === 'written' ? (
+                              <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-white/74">
+                                <div><strong className="text-white">Your answer:</strong> {typeof userAnswer === 'string' && userAnswer.trim() ? userAnswer : 'Not answered'}</div>
+                                <div className="mt-3">
+                                  <strong className="text-white">Correct answer:</strong>
+                                  {question.writtenAnswer?.trim() ? <FormattedContent html={question.writtenAnswer} className="mt-2 text-sm text-white/82" /> : <span className="ml-2 text-white/48">-</span>}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid gap-3">
+                                {question.options.map((option, optionIndex) => {
+                                  const optionImage = typeof option === 'string' ? null : option.imageUrl;
+                                  const isCorrectOption = question.questionType === 'multiple' ? (question.correctAnswers || []).includes(optionIndex) : optionIndex === question.correctAnswer;
+                                  const isUserChoice = question.questionType === 'multiple' ? Array.isArray(userAnswer) && userAnswer.includes(optionIndex) : optionIndex === userAnswer;
+                                  const optionClass = isCorrectOption ? 'border-[#00e5ff]/20 bg-[#00e5ff]/10 text-white' : isUserChoice && !answeredCorrectly ? 'border-[#ff8f8f]/20 bg-[#ff5a5a]/10 text-white' : 'border-white/10 bg-white/[0.04] text-white/62';
+                                  return (
+                                    <div key={optionIndex} className={`rounded-[22px] border px-4 py-3 ${optionClass}`}>
+                                      <div className="mb-2 font-semibold text-white">{String.fromCharCode(65 + optionIndex)}.</div>
+                                      <FormattedContent html={optionText(option)} className="text-sm leading-7 text-current" />
+                                      {optionImage ? <IntrinsicImage src={optionImage} alt="Option" loading="lazy" trimWhitespace className="mt-3 border border-white/10" /> : null}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3 text-xs text-white/56">
+                              {(() => {
+                                const { positiveMarks, negativeMarks } = getQuestionMarking(question, subjectRules);
+                                const questionScore = getQuestionScore(question, userAnswer, subjectRules);
+                                const mode = question.questionType === 'multiple' ? ` • Mode: ${(question.multipleCorrectScoringMode || 'full_only').replace(/_/g, ' ')}` : '';
+                                return `Marking: +${positiveMarks} correct, -${negativeMarks} wrong${mode} • Score earned: ${questionScore.score}`;
+                              })()}
+                            </div>
+
+                            <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,122,24,0.06))] p-4">
+                              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Official Explanation</div>
+                              <FormattedContent html={question.explanation} className="text-sm leading-7 text-white/78" />
+                              {question.explanationImage ? <img src={question.explanationImage} alt="Solution explanation" className="mt-4 max-h-80 w-auto rounded-2xl border border-white/10 bg-white" /> : null}
+                            </div>
+
+                            {aiQuestion ? (
+                              <div className="rounded-[24px] border border-[#8a2be2]/18 bg-[linear-gradient(135deg,rgba(138,43,226,0.18),rgba(0,229,255,0.08))] p-4">
+                                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                                  <Brain className="h-4 w-4 text-[#9cecff]" />
+                                  AI Solution Guide
+                                </div>
+                                {aiQuestion.solutionSteps.length ? <ol className="list-decimal space-y-2 pl-5 text-sm leading-7 text-white/80">{aiQuestion.solutionSteps.map((step) => <li key={step}>{step}</li>)}</ol> : null}
+                                {aiQuestion.simpleExplanation ? <p className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-7 text-white/78">{aiQuestion.simpleExplanation}</p> : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      </main>
+
       <Footer />
     </div>
   );
