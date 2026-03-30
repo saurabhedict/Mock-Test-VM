@@ -3,7 +3,7 @@ const Test = require("../models/Test");
 const Exam = require("../models/Exam");
 const TestAttempt = require("../models/TestAttempt");
 const AIChatSession = require("../models/AIChatSession");
-const { createStructuredResponse } = require("./openaiService");
+const { createStructuredResponse } = require("./llmService");
 const {
   computeAttemptAnalytics,
   computeStudentAnalytics,
@@ -22,11 +22,46 @@ const {
 const { stripHtml, truncateText } = require("../utils/plainText");
 
 const DEFAULT_MODELS = {
-  analysis: process.env.OPENAI_MODEL_ANALYSIS || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
-  chat: process.env.OPENAI_MODEL_CHAT || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
-  parser: process.env.OPENAI_MODEL_PARSER || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
-  questions: process.env.OPENAI_MODEL_QUESTION_GENERATION || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
-  summary: process.env.OPENAI_MODEL_SUMMARY || process.env.OPENAI_MODEL_GENERAL || "gpt-5-mini",
+  analysis:
+    process.env.GEMINI_MODEL_ANALYSIS ||
+    process.env.AI_MODEL_ANALYSIS ||
+    process.env.OPENAI_MODEL_ANALYSIS ||
+    process.env.GEMINI_MODEL_GENERAL ||
+    process.env.AI_MODEL_GENERAL ||
+    process.env.OPENAI_MODEL_GENERAL ||
+    "gemini-2.5-flash-lite",
+  chat:
+    process.env.GEMINI_MODEL_CHAT ||
+    process.env.AI_MODEL_CHAT ||
+    process.env.OPENAI_MODEL_CHAT ||
+    process.env.GEMINI_MODEL_GENERAL ||
+    process.env.AI_MODEL_GENERAL ||
+    process.env.OPENAI_MODEL_GENERAL ||
+    "gemini-2.5-flash-lite",
+  parser:
+    process.env.GEMINI_MODEL_PARSER ||
+    process.env.AI_MODEL_PARSER ||
+    process.env.OPENAI_MODEL_PARSER ||
+    process.env.GEMINI_MODEL_GENERAL ||
+    process.env.AI_MODEL_GENERAL ||
+    process.env.OPENAI_MODEL_GENERAL ||
+    "gemini-2.5-flash-lite",
+  questions:
+    process.env.GEMINI_MODEL_QUESTION_GENERATION ||
+    process.env.AI_MODEL_QUESTION_GENERATION ||
+    process.env.OPENAI_MODEL_QUESTION_GENERATION ||
+    process.env.GEMINI_MODEL_GENERAL ||
+    process.env.AI_MODEL_GENERAL ||
+    process.env.OPENAI_MODEL_GENERAL ||
+    "gemini-2.5-flash-lite",
+  summary:
+    process.env.GEMINI_MODEL_SUMMARY ||
+    process.env.AI_MODEL_SUMMARY ||
+    process.env.OPENAI_MODEL_SUMMARY ||
+    process.env.GEMINI_MODEL_GENERAL ||
+    process.env.AI_MODEL_GENERAL ||
+    process.env.OPENAI_MODEL_GENERAL ||
+    "gemini-2.5-flash-lite",
 };
 
 const chunkArray = (items = [], chunkSize = 6) => {
