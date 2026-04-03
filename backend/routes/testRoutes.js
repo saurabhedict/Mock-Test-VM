@@ -1,8 +1,9 @@
 const router = require("express").Router();
-const { startTest, getTestsByExam, getTestById } = require("../controllers/testController");
+const { startTest, getTestsByExam, getTestById, getCompletedTestReview } = require("../controllers/testController");
 const { protect } = require("../middleware/authMiddleware");
 const TestModel = require("../models/Test");
 const Exam = require("../models/Exam");
+const { setPrivateNoStoreHeaders } = require("../utils/cacheHeaders");
 const {
   calculateAttemptSummary,
   buildAttemptQuestionSnapshots,
@@ -58,6 +59,7 @@ const buildDifficultyBreakdown = (snapshots = []) =>
 // ── Must be before /:id to avoid "my-attempts" being treated as an ID ──
 router.get("/my-attempts", protect, async (req, res) => {
   try {
+    setPrivateNoStoreHeaders(res);
     const TestAttempt = require("../models/TestAttempt");
     const attempts = await TestAttempt.find({ userId: req.user._id })
       .select("testId status score totalQuestions totalMarks accuracy testTitle examId startedAt completedAt timeTakenSeconds")
@@ -87,6 +89,7 @@ router.get("/my-attempts", protect, async (req, res) => {
 
 router.post("/submit", protect, async (req, res) => {
   try {
+    setPrivateNoStoreHeaders(res);
     const TestAttempt = require("../models/TestAttempt");
     const { testId, answers, timeTaken, perQuestionTimes = [], attemptId, status, violationReason } = req.body;
 
@@ -152,6 +155,7 @@ router.post("/submit", protect, async (req, res) => {
 
 router.post("/session/start", protect, async (req, res) => {
   try {
+    setPrivateNoStoreHeaders(res);
     const TestAttempt = require("../models/TestAttempt");
     const { testId, startedAt } = req.body;
 
@@ -186,6 +190,7 @@ router.post("/session/start", protect, async (req, res) => {
 
 router.post("/session/heartbeat", protect, async (req, res) => {
   try {
+    setPrivateNoStoreHeaders(res);
     const TestAttempt = require("../models/TestAttempt");
     const { attemptId } = req.body;
 
@@ -211,6 +216,7 @@ router.post("/session/heartbeat", protect, async (req, res) => {
 });
 
 router.get("/exam/:examId", getTestsByExam);
+router.get("/:id/review", protect, getCompletedTestReview);
 router.get("/start", startTest);
 router.get("/:id", getTestById);
 

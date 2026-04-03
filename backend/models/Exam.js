@@ -27,4 +27,7 @@ const examSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+examSchema.index({ isActive: 1, createdAt: -1 });
+examSchema.index({ slug: 1, isActive: 1 });
+
 module.exports = mongoose.model("Exam", examSchema);

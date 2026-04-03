@@ -146,8 +146,14 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
           totalTests > 0
             ? Math.round(
                 testResults.reduce((acc: number, r: any) => {
-                  const correct = Object.entries(r.answers).filter(
-                    ([i, a]) => r.questions[parseInt(i)]?.correctAnswer === a
+                  if (r.summary) {
+                    const attemptedCount = Number(r.summary.correct || 0) + Number(r.summary.partial || 0) + Number(r.summary.wrong || 0);
+                    const weightedCorrect = Number(r.summary.correct || 0) + Number(r.summary.partial || 0) * 0.5;
+                    return acc + (attemptedCount > 0 ? (weightedCorrect / attemptedCount) * 100 : 0);
+                  }
+
+                  const correct = Object.entries(r.answers || {}).filter(
+                    ([i, a]) => r.questions?.[parseInt(i, 10)]?.correctAnswer === a
                   ).length;
                   return acc + (correct / (r.questions?.length || 1)) * 100;
                 }, 0) / totalTests

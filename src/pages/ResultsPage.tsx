@@ -38,6 +38,7 @@ type Question = DisplayTestQuestion;
 
 interface ResultData {
   testId: string;
+  attemptId?: string | null;
   answers: Record<string, AnswerValue>;
   questions: Question[];
   timeTaken: number;
@@ -97,13 +98,18 @@ export default function ResultsPage() {
   }
 
   const [result, setResult] = useState<ResultData>(() => JSON.parse(raw));
+  const [reviewState, setReviewState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
 
   useEffect(() => {
     let cancelled = false;
 
     const hydrateLatestQuestionData = async () => {
+      setReviewState('loading');
+
       try {
-        const { data } = await api.get(`/tests/${testId}`);
+        const { data } = await api.get(`/tests/${testId}/review`, {
+          params: result.attemptId ? { attemptId: result.attemptId } : undefined,
+        });
         const latestQuestions = new Map(
           (data.questions || []).map((question: Question & { _id?: string }) => [question._id || question.id, question]),
         );
@@ -158,50 +164,60 @@ export default function ResultsPage() {
             ...current,
             questions: mergedQuestions,
             subjects: data.examDetails?.subjects || current.subjects,
+            attemptId: data.attempt?._id || current.attemptId,
+            submissionStatus: data.attempt?.status || current.submissionStatus,
+            autoSubmitReason: data.attempt?.terminationReason || current.autoSubmitReason,
           };
 
           localStorage.setItem(`result_${testId}`, JSON.stringify(nextResult));
           return nextResult;
         });
+        setReviewState('ready');
       } catch {
-        // Keep local result if fetch fails.
+        if (cancelled) return;
+        setReviewState('unavailable');
       }
     };
 
-    hydrateLatestQuestionData();
+    void hydrateLatestQuestionData();
     return () => {
       cancelled = true;
     };
-  }, [testId]);
+  }, [result.attemptId, testId]);
 
   const { questions, answers } = result;
   const subjectRules = result.subjects || [];
   const summary = result.summary || calculateScoreSummary(questions, answers, subjectRules);
+  const reviewReady = reviewState === 'ready';
   const accuracy = summary.correct + summary.wrong > 0 ? Math.round((summary.correct / (summary.correct + summary.wrong)) * 100) : 0;
   const attempted = questions.length - summary.unanswered;
   const completion = questions.length > 0 ? Math.round((attempted / questions.length) * 100) : 0;
   const avgTime = questions.length > 0 ? Math.round(result.timeTaken / questions.length) : 0;
 
   const subjectScores: Record<string, { correct: number; total: number; attempted: number }> = {};
-  questions.forEach((question, index) => {
-    const subject = question.subject || 'General';
-    if (!subjectScores[subject]) subjectScores[subject] = { correct: 0, total: 0, attempted: 0 };
-    subjectScores[subject].total += 1;
-    const answer = answers[index];
-    if (!isAnswered(question, answer)) return;
-    subjectScores[subject].attempted += 1;
-    if (isCorrectAnswer(question, answer)) subjectScores[subject].correct += 1;
-  });
+  if (reviewReady) {
+    questions.forEach((question, index) => {
+      const subject = question.subject || 'General';
+      if (!subjectScores[subject]) subjectScores[subject] = { correct: 0, total: 0, attempted: 0 };
+      subjectScores[subject].total += 1;
+      const answer = answers[index];
+      if (!isAnswered(question, answer)) return;
+      subjectScores[subject].attempted += 1;
+      if (isCorrectAnswer(question, answer)) subjectScores[subject].correct += 1;
+    });
+  }
 
-  const subjectPerformance = Object.entries(subjectScores)
-    .map(([subject, data]) => ({
-      subject,
-      correct: data.correct,
-      total: data.total,
-      attempted: data.attempted,
-      accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
-    }))
-    .sort((left, right) => right.total - left.total);
+  const subjectPerformance = reviewReady
+    ? Object.entries(subjectScores)
+        .map(([subject, data]) => ({
+          subject,
+          correct: data.correct,
+          total: data.total,
+          attempted: data.attempted,
+          accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
+        }))
+        .sort((left, right) => right.total - left.total)
+    : [];
 
   return (
     <div className="dark min-h-screen ai-dashboard-shell text-white">
@@ -319,7 +335,15 @@ export default function ResultsPage() {
                 <Activity className="h-5 w-5 text-[#00e5ff]" />
               </div>
               <div className="space-y-4">
-                {subjectPerformance.length > 0 ? subjectPerformance.map((item) => (
+                {reviewState === 'loading' ? (
+                  <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                    Detailed subject-wise review is loading.
+                  </div>
+                ) : reviewState === 'unavailable' ? (
+                  <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                    Detailed subject-wise review is not available right now. Please refresh once more.
+                  </div>
+                ) : subjectPerformance.length > 0 ? subjectPerformance.map((item) => (
                   <div key={item.subject} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div>
@@ -342,13 +366,23 @@ export default function ResultsPage() {
           </section>
 
           <section className="mt-8">
-            <StudentAiChatPanel
-              questions={questions}
-              answers={answers}
-              summary={summary}
-              timeTaken={result.timeTaken}
-              perQuestionTimes={result.perQuestionTimes || []}
-            />
+            {reviewReady ? (
+              <StudentAiChatPanel
+                questions={questions}
+                answers={answers}
+                summary={summary}
+                timeTaken={result.timeTaken}
+                perQuestionTimes={result.perQuestionTimes || []}
+              />
+            ) : (
+              <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">AI Help</div>
+                <h2 className="mt-2 text-2xl font-display font-semibold text-white">Preparing your review data</h2>
+                <p className="mt-3 text-sm leading-7 text-white/65">
+                  The AI box will unlock as soon as we load your completed paper, answers, explanations, and timing details.
+                </p>
+              </div>
+            )}
           </section>
 
           <section className="mt-8">
@@ -366,7 +400,15 @@ export default function ResultsPage() {
 
               {showReview ? (
                 <div className="mt-6 space-y-4">
-                  {questions.map((question, index) => {
+                  {reviewState === 'loading' ? (
+                    <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                      Loading your full answer review.
+                    </div>
+                  ) : reviewState === 'unavailable' ? (
+                    <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                      We could not load the full answer review yet. Please refresh and try again.
+                    </div>
+                  ) : questions.map((question, index) => {
                     const userAnswer = answers[index];
                     const answeredCorrectly = isCorrectAnswer(question, userAnswer);
                     const unansweredQuestion = !isAnswered(question, userAnswer);

@@ -1,4 +1,5 @@
 const Exam = require("../models/Exam");
+const { setSharedCacheHeaders } = require("../utils/cacheHeaders");
 
 const mapExam = (exam) => ({
   _id: exam._id,
@@ -20,7 +21,12 @@ const mapExam = (exam) => ({
 
 exports.listExams = async (req, res) => {
   try {
-    const exams = await Exam.find({ isActive: true }).sort({ createdAt: -1 });
+    setSharedCacheHeaders(res, { maxAgeSeconds: 300, staleWhileRevalidateSeconds: 3600 });
+
+    const exams = await Exam.find({ isActive: true })
+      .select("slug name shortName description icon durationMinutes totalQuestions totalMarks subjects isActive createdAt updatedAt")
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(exams.map(mapExam));
   } catch (error) {
     console.error("ListExams error:", error);
@@ -30,7 +36,11 @@ exports.listExams = async (req, res) => {
 
 exports.getExamBySlug = async (req, res) => {
   try {
-    const exam = await Exam.findOne({ slug: req.params.examId, isActive: true });
+    setSharedCacheHeaders(res, { maxAgeSeconds: 300, staleWhileRevalidateSeconds: 3600 });
+
+    const exam = await Exam.findOne({ slug: req.params.examId, isActive: true })
+      .select("slug name shortName description icon durationMinutes totalQuestions totalMarks subjects isActive createdAt updatedAt")
+      .lean();
     if (!exam) return res.status(404).json({ msg: "Exam not found" });
     res.json(mapExam(exam));
   } catch (error) {

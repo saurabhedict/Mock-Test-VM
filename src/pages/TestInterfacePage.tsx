@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import api from '@/services/api';
-import { calculateScoreSummary, isAnswered, type AnswerValue, type ExamSubjectMarkingRule, type MultipleCorrectScoringMode } from '@/lib/scoring';
+import { isAnswered, type AnswerValue, type ExamSubjectMarkingRule, type MultipleCorrectScoringMode } from '@/lib/scoring';
 import {
   buildOriginalAnswersPayload,
   buildOriginalQuestionTimesPayload,
@@ -292,30 +292,35 @@ export default function TestInterfacePage() {
     const displayPerQuestionTimes = getQuestionTimesPayload(candidateState);
     const submissionAnswers = buildOriginalAnswersPayload(questions, candidateState.answers);
     const submissionPerQuestionTimes = buildOriginalQuestionTimesPayload(questions, displayPerQuestionTimes);
-    const summary = calculateScoreSummary(questions, candidateState.answers, testInfo?.subjects || []);
-
-    localStorage.removeItem(`test_${testId}`);
-    localStorage.setItem(`result_${testId}`, JSON.stringify({
-      testId,
-      answers: candidateState.answers,
-      questions,
-      timeTaken,
-      perQuestionTimes: displayPerQuestionTimes,
-      subjects: testInfo?.subjects || [],
-      summary,
-      optionOrderByQuestionId: candidateState.optionOrderByQuestionId,
-    }));
 
     try {
-      await api.post('/tests/submit', {
+      const { data } = await api.post('/tests/submit', {
         attemptId: candidateState.attemptId,
         testId,
         answers: submissionAnswers,
         timeTaken,
         perQuestionTimes: submissionPerQuestionTimes,
       });
+
+      localStorage.removeItem(`test_${testId}`);
+      localStorage.setItem(`result_${testId}`, JSON.stringify({
+        testId,
+        attemptId: data.attempt?._id || candidateState.attemptId,
+        answers: candidateState.answers,
+        questions,
+        timeTaken,
+        perQuestionTimes: displayPerQuestionTimes,
+        subjects: testInfo?.subjects || [],
+        summary: data.summary,
+        submissionStatus: data.attempt?.status || 'COMPLETED',
+        autoSubmitReason: data.attempt?.terminationReason || null,
+        optionOrderByQuestionId: candidateState.optionOrderByQuestionId,
+      }));
     } catch (err) {
       console.error('Failed to save attempt to DB:', err);
+      toast.error('We could not submit your test. Please try again.');
+      hasSubmittedRef.current = false;
+      return;
     }
 
     if (document.fullscreenElement) await document.exitFullscreen?.();
@@ -362,7 +367,7 @@ export default function TestInterfacePage() {
           correctAnswers: q.correctAnswers || [],
           writtenAnswer: q.writtenAnswer || '',
           subject: q.subject,
-          explanation: q.explanation,
+          explanation: q.explanation || '',
           explanationImage: q.explanationImage,
           marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => subject.name === q.subject)?.marksPerQuestion ?? 1),
           negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => subject.name === q.subject)?.negativeMarksPerQuestion ?? 0),
