@@ -4,27 +4,21 @@ import { motion } from 'framer-motion';
 import {
   Activity,
   ArrowLeft,
-  BarChart3,
-  Brain,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Clock3,
-  Loader2,
   Sparkles,
   Target,
   XCircle,
-  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import api from '@/services/api';
-import { readApiErrorMessage } from '@/lib/apiError';
 import FormattedContent from '@/components/FormattedContent';
 import IntrinsicImage from '@/components/IntrinsicImage';
 import StudentAiChatPanel from '@/components/StudentAiChatPanel';
-import { toast } from 'sonner';
 import {
   calculateScoreSummary,
   getQuestionMarking,
@@ -39,7 +33,6 @@ import {
   type BaseTestQuestion,
   type DisplayTestQuestion,
 } from '@/lib/testRandomization';
-import type { TestAnalysis } from '@/types/ai';
 
 type Question = DisplayTestQuestion;
 
@@ -83,68 +76,10 @@ const formatTime = (seconds = 0) => {
 
 const optionText = (option: any) => (typeof option === 'string' ? option : option?.text || '');
 
-function RingCard({
-  label,
-  value,
-  from,
-  to,
-}: {
-  label: string;
-  value: number;
-  from: string;
-  to: string;
-}) {
-  const radius = 44;
-  const circumference = 2 * Math.PI * radius;
-  const progress = Math.max(0, Math.min(100, value));
-
-  return (
-    <motion.div
-      whileHover={{ y: -4, rotateX: 3, rotateY: -3 }}
-      className="ai-glass-panel rounded-[28px] border border-white/10 bg-white/[0.04] p-5"
-    >
-      <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">{label}</div>
-      <div className="flex items-center gap-4">
-        <div className="relative h-28 w-28 shrink-0">
-          <svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-90">
-            <defs>
-              <linearGradient id={`ring-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={from} />
-                <stop offset="100%" stopColor={to} />
-              </linearGradient>
-            </defs>
-            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
-            <motion.circle
-              cx="60"
-              cy="60"
-              r={radius}
-              fill="none"
-              stroke={`url(#ring-${label})`}
-              strokeWidth="10"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              initial={{ strokeDashoffset: circumference }}
-              animate={{ strokeDashoffset: circumference - (progress / 100) * circumference }}
-              transition={{ duration: 1.1, ease: 'easeOut' }}
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-2xl font-display font-semibold text-white">{Math.round(progress)}%</div>
-            <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Live</div>
-          </div>
-        </div>
-        <p className="text-sm leading-7 text-white/60">AI uses this signal to shape the study report and coaching prompts.</p>
-      </div>
-    </motion.div>
-  );
-}
-
 export default function ResultsPage() {
   const { testId } = useParams<{ testId: string }>();
   const [showReview, setShowReview] = useState(false);
   const [expandedQ, setExpandedQ] = useState<number | null>(null);
-  const [analysis, setAnalysis] = useState<TestAnalysis | null>(null);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
 
   const raw = localStorage.getItem(`result_${testId}`);
   if (!raw) {
@@ -258,73 +193,15 @@ export default function ResultsPage() {
     if (isCorrectAnswer(question, answer)) subjectScores[subject].correct += 1;
   });
 
-  const analyticsBars =
-    analysis?.topicWisePerformance?.length
-      ? analysis.topicWisePerformance.map((item) => ({
-          label: item.topic,
-          accuracy: item.accuracy,
-          detail: `${item.correct}/${item.total} correct`,
-        }))
-      : Object.entries(subjectScores).map(([label, data]) => ({
-          label,
-          accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
-          detail: `${data.correct}/${data.total} correct`,
-        }));
-
-  const heatmap = questions.map((question, index) => {
-    const answer = answers[index];
-    const score = getQuestionScore(question, answer, subjectRules);
-    const answered = isAnswered(question, answer);
-    const correct = isCorrectAnswer(question, answer);
-    let tone = 'linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))';
-    let label = 'Open';
-    if (answered && correct) {
-      tone = 'linear-gradient(135deg,rgba(0,229,255,0.28),rgba(138,43,226,0.16))';
-      label = 'Lock';
-    } else if (answered && score.score > 0) {
-      tone = 'linear-gradient(135deg,rgba(255,122,24,0.3),rgba(138,43,226,0.14))';
-      label = 'Part';
-    } else if (answered) {
-      tone = 'linear-gradient(135deg,rgba(255,90,90,0.3),rgba(255,122,24,0.12))';
-      label = 'Miss';
-    }
-    return {
-      order: index + 1,
-      tone,
-      label,
-      timeSpentSeconds: result.perQuestionTimes?.[index] || analysis?.questionBreakdown.find((item) => item.order === index + 1)?.timeSpentSeconds || 0,
-    };
-  });
-
-  const speedValue = avgTime > 0 ? Math.max(0, Math.min(100, Math.round((1 - Math.min(avgTime, 180) / 180) * 100))) : 0;
-  const gaugeRotation = -110 + (speedValue / 100) * 220;
-
-  const runAiAnalysis = async () => {
-    setAnalysisLoading(true);
-    try {
-      const { data } = await api.post('/analyze-test', {
-        testId,
-        answers: result.answers,
-        timeTaken: result.timeTaken,
-        perQuestionTimes: result.perQuestionTimes || [],
-      });
-      setAnalysis(data.analysis);
-    } catch {
-      try {
-        const { data } = await api.post('/analyze-test', {
-          questions: result.questions,
-          answers: result.answers,
-          timeTaken: result.timeTaken,
-          perQuestionTimes: result.perQuestionTimes || [],
-        });
-        setAnalysis(data.analysis);
-      } catch (fallbackError) {
-        toast.error(readApiErrorMessage(fallbackError, 'AI analysis failed'));
-      }
-    } finally {
-      setAnalysisLoading(false);
-    }
-  };
+  const subjectPerformance = Object.entries(subjectScores)
+    .map(([subject, data]) => ({
+      subject,
+      correct: data.correct,
+      total: data.total,
+      attempted: data.attempted,
+      accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
+    }))
+    .sort((left, right) => right.total - left.total);
 
   return (
     <div className="dark min-h-screen ai-dashboard-shell text-white">
@@ -362,23 +239,13 @@ export default function ResultsPage() {
                   Student AI Analysis
                 </div>
                 <h1 className="text-4xl font-display font-semibold leading-tight text-white md:text-5xl">
-                  Turn this attempt into a study report
+                  Your result is ready
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-8 text-white/66 md:text-lg">
-                  Futuristic insights for topic accuracy, speed control, and next-step coaching.
+                  Check your score, review your answers, and ask AI any doubt in one simple place.
                 </p>
-                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Button
-                    onClick={runAiAnalysis}
-                    disabled={analysisLoading}
-                    className="ai-glow-button h-14 rounded-2xl border-0 bg-[linear-gradient(135deg,#ff7a18,#ff9a3d_44%,#8a2be2_96%)] px-7 text-base font-semibold text-white hover:brightness-110"
-                  >
-                    {analysisLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                    {analysis ? 'Refresh Analysis' : 'Analyze Test'}
-                  </Button>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white/68">
-                    AI coach is ready for question-by-question help once analysis is generated.
-                  </div>
+                <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white/68">
+                  The AI box below already knows your test answers, correct answers, explanations, and timing. Just ask your doubt directly.
                 </div>
                 {result.submissionStatus === 'AUTO_SUBMITTED' ? (
                   <div className="mt-6 rounded-[24px] border border-[#ff7a18]/18 bg-[linear-gradient(135deg,rgba(255,122,24,0.14),rgba(255,255,255,0.04))] px-4 py-4 text-sm text-[#ffd4b0]">
@@ -411,190 +278,12 @@ export default function ResultsPage() {
             </div>
           </motion.section>
 
-          <section className="mt-8 grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-            <div className="grid gap-5">
-              <div className="grid gap-5 md:grid-cols-2">
-                <RingCard label="Accuracy Pulse" value={accuracy} from="#00e5ff" to="#8a2be2" />
-                <RingCard label="Completion Pulse" value={completion} from="#ff7a18" to="#8a2be2" />
-              </div>
-
-              <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
-                <div className="mb-5 flex items-center justify-between">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Analytics Preview</div>
-                    <h2 className="mt-2 text-2xl font-display font-semibold text-white">Topic field</h2>
-                  </div>
-                  <BarChart3 className="h-5 w-5 text-[#00e5ff]" />
-                </div>
-                <div className="space-y-4">
-                  {analyticsBars.slice(0, 6).map((item, index) => (
-                    <div key={item.label}>
-                      <div className="mb-2 flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-semibold text-white">{item.label}</div>
-                          <div className="text-xs text-white/48">{item.detail}</div>
-                        </div>
-                        <div className="text-sm font-semibold text-[#8defff]">{item.accuracy}%</div>
-                      </div>
-                      <div className="h-3 overflow-hidden rounded-full bg-white/[0.06]">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${Math.max(6, Math.min(100, item.accuracy))}%` }}
-                          transition={{ duration: 0.75, delay: index * 0.08 }}
-                          className="h-full rounded-full bg-[linear-gradient(90deg,rgba(255,122,24,0.95),rgba(138,43,226,0.9) 55%,rgba(0,229,255,0.92))]"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {analysis?.strongTopics?.length || analysis?.weakTopics?.length ? (
-                  <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Strong Topics</div>
-                      <div className="flex flex-wrap gap-2">
-                        {analysis?.strongTopics?.length ? analysis.strongTopics.map((topic) => (
-                          <span key={topic} className="rounded-full border border-[#00e5ff]/20 bg-[#00e5ff]/10 px-3 py-1.5 text-xs font-medium text-[#9cecff]">{topic}</span>
-                        )) : <span className="text-sm text-white/50">No strong-topic signal yet.</span>}
-                      </div>
-                    </div>
-                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Weak Topics</div>
-                      <div className="flex flex-wrap gap-2">
-                        {analysis?.weakTopics?.length ? analysis.weakTopics.map((topic) => (
-                          <span key={topic} className="rounded-full border border-[#ff7a18]/20 bg-[#ff7a18]/10 px-3 py-1.5 text-xs font-medium text-[#ffc38d]">{topic}</span>
-                        )) : <span className="text-sm text-white/50">No weak-topic signal yet.</span>}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="grid gap-5">
-              <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
-                <div className="mb-5 flex items-center justify-between">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Speed Meter</div>
-                    <h2 className="mt-2 text-2xl font-display font-semibold text-white">Response velocity</h2>
-                  </div>
-                  <Zap className="h-5 w-5 text-[#ff7a18]" />
-                </div>
-                <div className="relative mx-auto flex h-60 max-w-sm items-center justify-center">
-                  <div className="absolute inset-x-8 bottom-7 h-40 rounded-t-full border border-white/10 border-b-0 bg-white/[0.03]" />
-                  <motion.div
-                    className="absolute bottom-10 h-24 w-1 rounded-full origin-bottom bg-[linear-gradient(180deg,#ffffff,#00e5ff,#8a2be2)] shadow-[0_0_20px_rgba(0,229,255,0.35)]"
-                    initial={{ rotate: '-110deg' }}
-                    animate={{ rotate: `${gaugeRotation}deg` }}
-                    transition={{ duration: 1.1, ease: 'easeOut' }}
-                  />
-                  <div className="absolute bottom-8 h-5 w-5 rounded-full bg-white shadow-[0_0_28px_rgba(255,255,255,0.45)]" />
-                  <div className="relative z-10 text-center">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/45">Speed Index</div>
-                    <div className="mt-3 text-5xl font-display font-semibold text-white">{speedValue}</div>
-                    <div className="mt-2 text-sm text-white/56">{avgTime}s average per question</div>
-                  </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Slow Signal</div>
-                    <div className="mt-2 text-sm font-semibold text-white">
-                      {analysis?.timeAnalysis?.slowQuestions?.[0] ? `Q${analysis.timeAnalysis.slowQuestions[0].order} • ${analysis.timeAnalysis.slowQuestions[0].timeSpentSeconds}s` : 'Run analysis'}
-                    </div>
-                  </div>
-                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Fast Signal</div>
-                    <div className="mt-2 text-sm font-semibold text-white">
-                      {analysis?.timeAnalysis?.fastQuestions?.[0] ? `Q${analysis.timeAnalysis.fastQuestions[0].order} • ${analysis.timeAnalysis.fastQuestions[0].timeSpentSeconds}s` : 'Waiting for timing map'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
-                <div className="mb-5 flex items-center justify-between">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Question Heatmap</div>
-                    <h2 className="mt-2 text-2xl font-display font-semibold text-white">Attempt intensity</h2>
-                  </div>
-                  <Activity className="h-5 w-5 text-[#00e5ff]" />
-                </div>
-                <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 xl:grid-cols-7">
-                  {heatmap.map((cell) => (
-                    <div key={cell.order} className="rounded-[22px] border border-white/10 px-3 py-4 text-center" style={{ background: cell.tone }}>
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">Q{cell.order}</div>
-                      <div className="mt-3 text-sm font-semibold text-white">{cell.label}</div>
-                      <div className="mt-2 text-[11px] text-white/50">{cell.timeSpentSeconds ? `${cell.timeSpentSeconds}s` : 'No time'}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="mt-8 grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-            <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">AI Narrative</div>
-                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Study report layer</h2>
-                </div>
-                <Brain className="h-5 w-5 text-[#8a2be2]" />
-              </div>
-              {analysisLoading ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {[0, 1, 2, 3].map((item) => (
-                    <div key={item} className="ai-shimmer-track rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
-                      <div className="h-3 w-28 rounded-full bg-white/10" />
-                      <div className="mt-4 h-5 rounded-full bg-white/10" />
-                      <div className="mt-2 h-5 w-10/12 rounded-full bg-white/10" />
-                    </div>
-                  ))}
-                </div>
-              ) : analysis ? (
-                <div className="grid gap-5">
-                  <div className="rounded-[26px] border border-white/10 bg-[linear-gradient(135deg,rgba(138,43,226,0.16),rgba(0,229,255,0.08))] p-5">
-                    <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Executive Summary</div>
-                    <p className="text-sm leading-7 text-white/82">{analysis.aiSummary || 'The AI summary will appear here after analysis.'}</p>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-[26px] border border-white/10 bg-black/20 p-5">
-                      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Suggestions</div>
-                      <div className="space-y-2.5">
-                        {analysis.improvementSuggestions.length ? analysis.improvementSuggestions.map((suggestion) => (
-                          <div key={suggestion} className="rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-3 text-sm leading-6 text-white/76">{suggestion}</div>
-                        )) : <div className="text-sm text-white/50">No suggestions yet.</div>}
-                      </div>
-                    </div>
-                    <div className="rounded-[26px] border border-white/10 bg-black/20 p-5">
-                      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Difficulty Radar</div>
-                      <div className="space-y-3">
-                        {analysis.difficultyPerformance.length ? analysis.difficultyPerformance.map((difficulty) => (
-                          <div key={difficulty.difficulty}>
-                            <div className="mb-1 flex items-center justify-between text-sm">
-                              <span className="font-medium capitalize text-white">{difficulty.difficulty}</span>
-                              <span className="text-white/52">{difficulty.accuracy}%</span>
-                            </div>
-                            <div className="h-2 rounded-full bg-white/[0.06]">
-                              <div className="h-full rounded-full bg-[linear-gradient(90deg,#00e5ff,#8a2be2,#ff7a18)]" style={{ width: `${Math.max(6, Math.min(100, difficulty.accuracy))}%` }} />
-                            </div>
-                          </div>
-                        )) : <div className="text-sm text-white/50">Difficulty split will appear after analysis.</div>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-[26px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm leading-7 text-white/58">
-                  Run the AI analysis to unlock topic diagnosis, timing signals, and smarter coaching prompts.
-                </div>
-              )}
-            </div>
-
+          <section className="mt-8 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
             <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Attempt Snapshot</div>
-                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Performance constellation</h2>
+                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Performance summary</h2>
                 </div>
                 <Target className="h-5 w-5 text-[#ff7a18]" />
               </div>
@@ -614,27 +303,52 @@ export default function ResultsPage() {
                   </div>
                 ))}
               </div>
-              <div className="mt-5 space-y-3">
-                {Object.entries(subjectScores).slice(0, 5).map(([subject, data]) => {
-                  const score = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
-                  return (
-                    <div key={subject} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                      <div className="mb-2 flex items-center justify-between text-sm">
-                        <span className="font-semibold text-white">{subject}</span>
-                        <span className="text-white/52">{data.correct}/{data.total}</span>
+              <div className="mt-5 rounded-[24px] border border-white/10 bg-black/20 p-4 text-sm leading-7 text-white/68">
+                <div><strong className="text-white">Accuracy:</strong> {accuracy}%</div>
+                <div><strong className="text-white">Completion:</strong> {completion}%</div>
+                <div><strong className="text-white">Average time per question:</strong> {avgTime}s</div>
+              </div>
+            </div>
+
+            <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Subject Performance</div>
+                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Where you did well and where to improve</h2>
+                </div>
+                <Activity className="h-5 w-5 text-[#00e5ff]" />
+              </div>
+              <div className="space-y-4">
+                {subjectPerformance.length > 0 ? subjectPerformance.map((item) => (
+                  <div key={item.subject} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-white">{item.subject}</div>
+                        <div className="text-xs text-white/48">{item.correct}/{item.total} correct • {item.attempted}/{item.total} attempted</div>
                       </div>
-                      <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
-                        <div className="h-full rounded-full bg-[linear-gradient(90deg,#ff7a18,#8a2be2,#00e5ff)]" style={{ width: `${Math.max(6, Math.min(100, score))}%` }} />
-                      </div>
+                      <div className="text-sm font-semibold text-[#8defff]">{item.accuracy}%</div>
                     </div>
-                  );
-                })}
+                    <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="h-full rounded-full bg-[linear-gradient(90deg,#ff7a18,#8a2be2,#00e5ff)]" style={{ width: `${Math.max(6, Math.min(100, item.accuracy))}%` }} />
+                    </div>
+                  </div>
+                )) : (
+                  <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                    Subject-wise performance will appear here when the test includes subject data.
+                  </div>
+                )}
               </div>
             </div>
           </section>
 
           <section className="mt-8">
-            <StudentAiChatPanel questions={questions} answers={answers} />
+            <StudentAiChatPanel
+              questions={questions}
+              answers={answers}
+              summary={summary}
+              timeTaken={result.timeTaken}
+              perQuestionTimes={result.perQuestionTimes || []}
+            />
           </section>
 
           <section className="mt-8">
@@ -657,7 +371,6 @@ export default function ResultsPage() {
                     const answeredCorrectly = isCorrectAnswer(question, userAnswer);
                     const unansweredQuestion = !isAnswered(question, userAnswer);
                     const scoreInfo = getQuestionScore(question, userAnswer, subjectRules);
-                    const aiQuestion = analysis?.questionBreakdown.find((item) => item.questionId === question.id || item.order === index + 1);
 
                     let badge = 'Open';
                     let badgeClass = 'border-white/10 bg-white/[0.05] text-white/70';
@@ -732,17 +445,6 @@ export default function ResultsPage() {
                               <FormattedContent html={question.explanation} className="text-sm leading-7 text-white/78" />
                               {question.explanationImage ? <img src={question.explanationImage} alt="Solution explanation" className="mt-4 max-h-80 w-auto rounded-2xl border border-white/10 bg-white" /> : null}
                             </div>
-
-                            {aiQuestion ? (
-                              <div className="rounded-[24px] border border-[#8a2be2]/18 bg-[linear-gradient(135deg,rgba(138,43,226,0.18),rgba(0,229,255,0.08))] p-4">
-                                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-                                  <Brain className="h-4 w-4 text-[#9cecff]" />
-                                  AI Solution Guide
-                                </div>
-                                {aiQuestion.solutionSteps.length ? <ol className="list-decimal space-y-2 pl-5 text-sm leading-7 text-white/80">{aiQuestion.solutionSteps.map((step) => <li key={step}>{step}</li>)}</ol> : null}
-                                {aiQuestion.simpleExplanation ? <p className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-7 text-white/78">{aiQuestion.simpleExplanation}</p> : null}
-                              </div>
-                            ) : null}
                           </div>
                         ) : null}
                       </div>

@@ -282,6 +282,81 @@ const formatQuestionContextForPrompt = (questionContext) => {
   ].join("\n");
 };
 
+const buildExamContextBlock = (context = {}) => {
+  const hasSummary = context?.summary && typeof context.summary === "object";
+  const hasQuestions = Array.isArray(context?.questions) && context.questions.length > 0;
+  const hasTitle = Boolean(context?.testTitle);
+
+  if (!hasSummary && !hasQuestions && !hasTitle) {
+    return null;
+  }
+
+  return {
+    testTitle: stripHtml(context.testTitle || "Practice Test"),
+    summary: hasSummary
+      ? {
+          score: Number(context.summary.score || 0),
+          totalMarks: Number(context.summary.totalMarks || 0),
+          correct: Number(context.summary.correct || 0),
+          partial: Number(context.summary.partial || 0),
+          wrong: Number(context.summary.wrong || 0),
+          unanswered: Number(context.summary.unanswered || 0),
+          timeTakenSeconds: Number(context.summary.timeTakenSeconds || 0),
+          totalQuestions: Number(context.summary.totalQuestions || 0),
+        }
+      : null,
+    questions: hasQuestions
+      ? context.questions.map((question, index) => ({
+          order: Number(question.order || index + 1),
+          subject: stripHtml(question.subject || "General"),
+          questionType: stripHtml(question.questionType || "single"),
+          result: stripHtml(question.result || ""),
+          timeSpentSeconds: Number(question.timeSpentSeconds || 0),
+          question: truncateText(question.question || "", 180),
+          selectedAnswer: truncateText(question.selectedAnswer || "", 120),
+          correctAnswer: truncateText(question.correctAnswer || "", 120),
+          explanation: truncateText(question.explanation || "", 140),
+        }))
+      : [],
+  };
+};
+
+const formatExamContextForPrompt = (examContext) => {
+  if (!examContext) {
+    return "Exam context: none provided.";
+  }
+
+  const summaryBlock = examContext.summary
+    ? [
+        `Test title: ${examContext.testTitle || "Practice Test"}`,
+        `Score: ${examContext.summary.score}/${examContext.summary.totalMarks}`,
+        `Correct: ${examContext.summary.correct}`,
+        `Partial: ${examContext.summary.partial}`,
+        `Wrong: ${examContext.summary.wrong}`,
+        `Unanswered: ${examContext.summary.unanswered}`,
+        `Total questions: ${examContext.summary.totalQuestions}`,
+        `Time taken seconds: ${examContext.summary.timeTakenSeconds}`,
+      ].join("\n")
+    : `Test title: ${examContext.testTitle || "Practice Test"}`;
+
+  const questionLines =
+    Array.isArray(examContext.questions) && examContext.questions.length
+      ? examContext.questions
+          .map(
+            (question) =>
+              `Q${question.order} [${question.subject}] Result: ${question.result || "Unknown"} | Time: ${question.timeSpentSeconds || 0}s | Question: ${question.question || "Not available"} | Student: ${question.selectedAnswer || "Not answered"} | Correct: ${question.correctAnswer || "Not available"} | Explanation: ${question.explanation || "Not available"}`
+          )
+          .join("\n")
+      : "No per-question exam context provided.";
+
+  return [
+    "Exam context:",
+    summaryBlock,
+    "Question list:",
+    questionLines,
+  ].join("\n");
+};
+
 const chatWithAssistant = async ({ userId, sessionId, message, context = {}, memory = true }) => {
   if (!message?.trim()) {
     const error = new Error("message is required");
@@ -291,6 +366,7 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
 
   const resolvedSessionId = sessionId || crypto.randomUUID();
   const questionContext = buildQuestionContextBlock(context);
+  const examContext = buildExamContextBlock(context);
   let chatSession = null;
 
   if (memory) {
@@ -308,7 +384,7 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
     schema: chatSchema,
     maxOutputTokens: 850,
     instructions:
-      "You are a patient study assistant for competitive exams. Explain answers simply, correct misconceptions directly, and prefer short paragraphs or bullets. If question context exists, use it. Do not mention that you are reading JSON.",
+      "You are a patient study assistant for competitive exams. Explain answers simply, correct misconceptions directly, and prefer short paragraphs or bullets. Use the exam context for personal guidance and use the question context when the student asks about a specific question. If the student mentions a question number, answer from that question's data first. Do not mention that you are reading JSON.",
     input: [
       ...recentMessages,
       {
@@ -318,6 +394,8 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
             type: "input_text",
             text: [
               `Student message: ${message.trim()}`,
+              "",
+              formatExamContextForPrompt(examContext),
               "",
               formatQuestionContextForPrompt(questionContext),
             ].join("\n"),
