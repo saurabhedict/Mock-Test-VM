@@ -461,7 +461,7 @@ export default function TestInterfacePage() {
     if (!hasStartedSession || !state?.attemptId || hasSubmittedRef.current) return;
     const interval = window.setInterval(() => {
       api.post('/tests/session/heartbeat', { attemptId: state.attemptId }).catch(() => {});
-    }, 30000);
+    }, 45000);
     return () => window.clearInterval(interval);
   }, [hasStartedSession, state?.attemptId]);
 

@@ -31,4 +31,7 @@ const QuestionSchema = new mongoose.Schema({
   negativeMarksPerQuestion: Number,
 });
 
+QuestionSchema.index({ exam: 1, subject: 1 });
+QuestionSchema.index({ subject: 1 });
+
 module.exports = mongoose.model("Question", QuestionSchema)

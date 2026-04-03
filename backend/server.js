@@ -1,4 +1,3 @@
-console.log("SERVER LOG: Starting server.js");
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -18,9 +17,7 @@ const aiRoutes = require("./routes/aiRoutes");
 
 const app = express();
 
-console.log("SERVER LOG: Attempting DB connection...");
 connectDB();
-console.log("SERVER LOG: App setup continuing...");
 
 // Middleware
 app.use(cors({

@@ -24,4 +24,29 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          if (id.includes("@radix-ui") || id.includes("cmdk") || id.includes("vaul")) {
+            return "ui-kit";
+          }
+
+          if (id.includes("framer-motion") || id.includes("lucide-react")) {
+            return "motion-icons";
+          }
+
+          if (id.includes("recharts")) {
+            return "charts";
+          }
+
+          if (id.includes("axios") || id.includes("zod") || id.includes("date-fns")) {
+            return "data-utils";
+          }
+        },
+      },
+    },
+  },
 }));

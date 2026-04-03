@@ -76,13 +76,14 @@ exports.getTestsByExam = async (req, res) => {
   try {
     const { examId } = req.params;
     const tests = await TestModel.find({ exam: examId, isPublished: true })
-      .populate('questions')
+      .select("title exam subject subjects durationMinutes totalMarks shuffleQuestions shuffleOptions questions isPublished createdAt")
+      .sort({ createdAt: -1 })
       .lean();
     
     // Add question count
     const testsWithCount = tests.map(t => ({
       ...t,
-      totalQuestions: t.questions.length,
+      totalQuestions: Array.isArray(t.questions) ? t.questions.length : 0,
       subjects: t.subjects?.length ? t.subjects : [t.subject],
     }));
 
@@ -94,11 +95,23 @@ exports.getTestsByExam = async (req, res) => {
 
 exports.getTestById = async (req, res) => {
   try {
-    const test = await TestModel.findById(req.params.id).populate('questions');
+    const test = await TestModel.findById(req.params.id)
+      .select("title exam subject subjects durationMinutes totalMarks shuffleQuestions shuffleOptions questions")
+      .populate({
+        path: "questions",
+        select:
+          "question questionType questionImage options correctAnswer correctAnswers writtenAnswer subject explanation explanationImage marksPerQuestion negativeMarksPerQuestion multipleCorrectScoringMode",
+      })
+      .lean();
+
     if (!test) return res.status(404).json({ msg: "Test not found" });
-    const exam = await Exam.findOne({ slug: test.exam }).lean();
+
+    const exam = await Exam.findOne({ slug: test.exam })
+      .select("slug name shortName durationMinutes totalQuestions totalMarks subjects")
+      .lean();
+
     res.json({
-      ...test.toObject(),
+      ...test,
       subjects: test.subjects?.length ? test.subjects : [test.subject],
       examDetails: exam
         ? {

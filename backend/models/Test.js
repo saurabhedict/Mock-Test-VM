@@ -16,4 +16,7 @@ const testSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+testSchema.index({ exam: 1, isPublished: 1, createdAt: -1 });
+testSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("Test", testSchema);
