@@ -6,28 +6,22 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import api from '@/services/api';
-import { calculateScoreSummary, isAnswered, type AnswerValue, type ExamSubjectMarkingRule, type MultipleCorrectScoringMode, type QuestionType } from '@/lib/scoring';
+import { calculateScoreSummary, isAnswered, type AnswerValue, type ExamSubjectMarkingRule, type MultipleCorrectScoringMode } from '@/lib/scoring';
+import {
+  buildOriginalAnswersPayload,
+  buildOriginalQuestionTimesPayload,
+  prepareTestQuestions,
+  type BaseTestQuestion,
+  type DisplayTestQuestion,
+  type SavedTestOrderState,
+  type TestRandomizationConfig,
+} from '@/lib/testRandomization';
 import FormattedContent from '@/components/FormattedContent';
 import IntrinsicImage from '@/components/IntrinsicImage';
 
 type QuestionStatus = 'not-visited' | 'not-answered' | 'answered' | 'marked';
 
-interface TestQuestion {
-  id: string;
-  question: string;
-  questionType: QuestionType;
-  questionImage?: string;
-  options: { text: string; imageUrl?: string }[];
-  correctAnswer?: number;
-  correctAnswers?: number[];
-  writtenAnswer?: string;
-  subject: string;
-  explanation: string;
-  explanationImage?: string;
-  marksPerQuestion?: number;
-  negativeMarksPerQuestion?: number;
-  multipleCorrectScoringMode?: MultipleCorrectScoringMode;
-}
+type TestQuestion = DisplayTestQuestion;
 
 interface TestState {
   answers: Record<number, AnswerValue>;
@@ -37,6 +31,8 @@ interface TestState {
   tabSwitchCount: number;
   startTime: number;
   attemptId: string | null;
+  questionOrder: string[];
+  optionOrderByQuestionId: Record<string, number[]>;
 }
 
 interface TestInfo {
@@ -44,6 +40,8 @@ interface TestInfo {
   duration: number;
   totalMarks: number;
   subjects: ExamSubjectMarkingRule[];
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
 }
 
 const STATUS_COLORS: Record<QuestionStatus, string> = {
@@ -92,7 +90,10 @@ const getEmptyAnswer = (question: TestQuestion): AnswerValue => {
   return null;
 };
 
-const getInitialTestState = (questions: TestQuestion[]): TestState => {
+const getInitialTestState = (
+  questions: TestQuestion[],
+  savedOrderState: SavedTestOrderState = {},
+): TestState => {
   const statuses: Record<number, QuestionStatus> = {};
   const answers: Record<number, AnswerValue> = {};
   const questionTimes: Record<number, number> = {};
@@ -103,7 +104,17 @@ const getInitialTestState = (questions: TestQuestion[]): TestState => {
     questionTimes[index] = 0;
   });
 
-  return { answers, statuses, questionTimes, currentQuestion: 0, tabSwitchCount: 0, startTime: Date.now(), attemptId: null };
+  return {
+    answers,
+    statuses,
+    questionTimes,
+    currentQuestion: 0,
+    tabSwitchCount: 0,
+    startTime: Date.now(),
+    attemptId: null,
+    questionOrder: savedOrderState.questionOrder || questions.map((question) => question.id),
+    optionOrderByQuestionId: savedOrderState.optionOrderByQuestionId || {},
+  };
 };
 
 const sanitizeSavedState = (savedState: unknown, questions: TestQuestion[]): TestState | null => {
@@ -133,8 +144,50 @@ const sanitizeSavedState = (savedState: unknown, questions: TestQuestion[]): Tes
     : 0;
   const tabSwitchCount = Number.isInteger(candidate.tabSwitchCount) ? Math.max(0, candidate.tabSwitchCount as number) : 0;
   const attemptId = typeof candidate.attemptId === 'string' && candidate.attemptId.trim() ? candidate.attemptId : null;
+  const questionOrder = Array.isArray(candidate.questionOrder)
+    ? candidate.questionOrder.map((value) => String(value))
+    : questions.map((question) => question.id);
+  const optionOrderByQuestionId =
+    candidate.optionOrderByQuestionId && typeof candidate.optionOrderByQuestionId === 'object'
+      ? Object.fromEntries(
+          Object.entries(candidate.optionOrderByQuestionId).map(([questionId, optionOrder]) => [
+            questionId,
+            Array.isArray(optionOrder) ? optionOrder.map((value) => Number(value)) : [],
+          ]),
+        )
+      : {};
 
-  return { answers, statuses, questionTimes, currentQuestion, tabSwitchCount, startTime: candidate.startTime as number, attemptId };
+  return {
+    answers,
+    statuses,
+    questionTimes,
+    currentQuestion,
+    tabSwitchCount,
+    startTime: candidate.startTime as number,
+    attemptId,
+    questionOrder,
+    optionOrderByQuestionId,
+  };
+};
+
+const extractSavedOrderState = (savedState: unknown): SavedTestOrderState => {
+  if (!savedState || typeof savedState !== 'object') {
+    return {};
+  }
+
+  const candidate = savedState as Partial<TestState>;
+  return {
+    questionOrder: Array.isArray(candidate.questionOrder) ? candidate.questionOrder.map((value) => String(value)) : undefined,
+    optionOrderByQuestionId:
+      candidate.optionOrderByQuestionId && typeof candidate.optionOrderByQuestionId === 'object'
+        ? Object.fromEntries(
+            Object.entries(candidate.optionOrderByQuestionId).map(([questionId, optionOrder]) => [
+              questionId,
+              Array.isArray(optionOrder) ? optionOrder.map((value) => Number(value)) : [],
+            ]),
+          )
+        : undefined,
+  };
 };
 
 export default function TestInterfacePage() {
@@ -236,7 +289,9 @@ export default function TestInterfacePage() {
     hasSubmittedRef.current = true;
 
     const timeTaken = Math.max(0, (testInfo?.duration || 60) * 60 - timeLeft);
-    const perQuestionTimes = getQuestionTimesPayload(candidateState);
+    const displayPerQuestionTimes = getQuestionTimesPayload(candidateState);
+    const submissionAnswers = buildOriginalAnswersPayload(questions, candidateState.answers);
+    const submissionPerQuestionTimes = buildOriginalQuestionTimesPayload(questions, displayPerQuestionTimes);
     const summary = calculateScoreSummary(questions, candidateState.answers, testInfo?.subjects || []);
 
     localStorage.removeItem(`test_${testId}`);
@@ -245,18 +300,19 @@ export default function TestInterfacePage() {
       answers: candidateState.answers,
       questions,
       timeTaken,
-      perQuestionTimes,
+      perQuestionTimes: displayPerQuestionTimes,
       subjects: testInfo?.subjects || [],
       summary,
+      optionOrderByQuestionId: candidateState.optionOrderByQuestionId,
     }));
 
     try {
       await api.post('/tests/submit', {
         attemptId: candidateState.attemptId,
         testId,
-        answers: candidateState.answers,
+        answers: submissionAnswers,
         timeTaken,
-        perQuestionTimes,
+        perQuestionTimes: submissionPerQuestionTimes,
       });
     } catch (err) {
       console.error('Failed to save attempt to DB:', err);
@@ -267,8 +323,12 @@ export default function TestInterfacePage() {
   }, [getQuestionTimesPayload, navigate, questions, testId, testInfo, timeLeft]);
 
   useEffect(() => {
-    const initializeNewState = (candidateQuestions: TestQuestion[], candidateInfo: TestInfo | null) => {
-      const newState = getInitialTestState(candidateQuestions);
+    const initializeNewState = (
+      candidateQuestions: TestQuestion[],
+      candidateInfo: TestInfo | null,
+      savedOrderState: SavedTestOrderState,
+    ) => {
+      const newState = getInitialTestState(candidateQuestions, savedOrderState);
       setState(newState);
       setTimeLeft((candidateInfo?.duration || 60) * 60);
       setHasSavedAttempt(false);
@@ -278,10 +338,21 @@ export default function TestInterfacePage() {
       setLoading(true);
       let finalQuestions: TestQuestion[] = [];
       let finalTestInfo: TestInfo | null = null;
+      let parsedSavedState: unknown = null;
+      let preparedOrderState: SavedTestOrderState = {};
+
+      const saved = localStorage.getItem(`test_${testId}`);
+      if (saved) {
+        try {
+          parsedSavedState = JSON.parse(saved);
+        } catch {
+          localStorage.removeItem(`test_${testId}`);
+        }
+      }
 
       try {
         const { data } = await api.get(`/tests/${testId}`);
-        finalQuestions = data.questions.map((q: any) => ({
+        const rawQuestions: BaseTestQuestion[] = data.questions.map((q: any) => ({
           id: q._id,
           question: q.question,
           questionType: q.questionType || 'single',
@@ -297,11 +368,33 @@ export default function TestInterfacePage() {
           negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => subject.name === q.subject)?.negativeMarksPerQuestion ?? 0),
           multipleCorrectScoringMode: q.multipleCorrectScoringMode || 'full_only',
         }));
+        const randomizationConfig: TestRandomizationConfig = {
+          shuffleQuestions: Boolean(data.shuffleQuestions),
+          shuffleOptions: Boolean(data.shuffleOptions),
+        };
+        const extractedSavedOrderState = extractSavedOrderState(parsedSavedState);
+        const savedOrderStateForResume = parsedSavedState
+          ? {
+              questionOrder: extractedSavedOrderState.questionOrder || rawQuestions.map((question) => question.id),
+              optionOrderByQuestionId:
+                extractedSavedOrderState.optionOrderByQuestionId ||
+                Object.fromEntries(rawQuestions.map((question) => [question.id, question.options.map((_, index) => index)])),
+            }
+          : extractedSavedOrderState;
+        const preparedQuestions = prepareTestQuestions(rawQuestions, randomizationConfig, savedOrderStateForResume);
+
+        finalQuestions = preparedQuestions.questions;
+        preparedOrderState = {
+          questionOrder: preparedQuestions.questionOrder,
+          optionOrderByQuestionId: preparedQuestions.optionOrderByQuestionId,
+        };
         finalTestInfo = {
           testName: data.title,
           duration: data.durationMinutes,
           totalMarks: data.totalMarks,
           subjects: data.examDetails?.subjects || [],
+          shuffleQuestions: Boolean(data.shuffleQuestions),
+          shuffleOptions: Boolean(data.shuffleOptions),
         };
       } catch {
         toast.error('Failed to load test data');
@@ -319,11 +412,9 @@ export default function TestInterfacePage() {
       questionTimerReadyRef.current = false;
       questionEnteredAtRef.current = null;
 
-      const saved = localStorage.getItem(`test_${testId}`);
-      if (saved) {
+      if (parsedSavedState) {
         try {
-          const parsed = JSON.parse(saved);
-          const sanitizedState = sanitizeSavedState(parsed, finalQuestions);
+          const sanitizedState = sanitizeSavedState(parsedSavedState, finalQuestions);
           const duration = (finalTestInfo?.duration || 60) * 60;
           if (!sanitizedState) throw new Error('Saved test state is invalid');
 
@@ -331,7 +422,7 @@ export default function TestInterfacePage() {
           const remaining = duration - elapsed;
           if (remaining <= 0) {
             localStorage.removeItem(`test_${testId}`);
-            initializeNewState(finalQuestions, finalTestInfo);
+            initializeNewState(finalQuestions, finalTestInfo, preparedOrderState);
             toast.info('Your previous saved attempt had expired, so a fresh test was started.');
           } else {
             setState(sanitizedState);
@@ -340,10 +431,10 @@ export default function TestInterfacePage() {
           }
         } catch {
           localStorage.removeItem(`test_${testId}`);
-          initializeNewState(finalQuestions, finalTestInfo);
+          initializeNewState(finalQuestions, finalTestInfo, preparedOrderState);
         }
       } else {
-        initializeNewState(finalQuestions, finalTestInfo);
+        initializeNewState(finalQuestions, finalTestInfo, preparedOrderState);
       }
 
       setLoading(false);
@@ -765,6 +856,12 @@ export default function TestInterfacePage() {
 
                         <span className="break-words text-muted-foreground">Question Palette</span>
                         <span className="min-w-0 break-words font-semibold sm:text-right">Visible During Test</span>
+
+                        <span className="break-words text-muted-foreground">Question Order</span>
+                        <span className="min-w-0 break-words font-semibold sm:text-right">{testInfo?.shuffleQuestions ? 'Randomized Per Student' : 'Fixed Order'}</span>
+
+                        <span className="break-words text-muted-foreground">Option Order</span>
+                        <span className="min-w-0 break-words font-semibold sm:text-right">{testInfo?.shuffleOptions ? 'Randomized Per Student' : 'Fixed Order'}</span>
                       </div>
                     </div>
                   </div>

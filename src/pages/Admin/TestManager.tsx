@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash, Edit, CheckCircle2, XCircle, LayoutGrid, BookOpen, MinusCircle, Pencil, Home } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { mergeExamCatalog, type DynamicExam } from "@/lib/examCatalog";
@@ -19,6 +20,8 @@ interface Test {
   subjects?: string[];
   durationMinutes: number;
   totalMarks: number;
+  shuffleQuestions: boolean;
+  shuffleOptions: boolean;
   isPublished: boolean;
   _count?: { questions: number };
 }
@@ -47,6 +50,8 @@ const TestManager = () => {
     subjects: [] as string[],
     durationMinutes: 60,
     totalMarks: 100,
+    shuffleQuestions: false,
+    shuffleOptions: false,
   });
   const [newExam, setNewExam] = useState({
     id: "",
@@ -61,6 +66,8 @@ const TestManager = () => {
   const [savingExam, setSavingExam] = useState(false);
   const [editingTest, setEditingTest] = useState<Test | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [editingShuffleQuestions, setEditingShuffleQuestions] = useState(false);
+  const [editingShuffleOptions, setEditingShuffleOptions] = useState(false);
   const [savingTestId, setSavingTestId] = useState<string | null>(null);
   const examCatalog = mergeExamCatalog(exams);
 
@@ -235,7 +242,14 @@ const TestManager = () => {
     try {
       const { data } = await api.post("/admin/tests", newTest);
       setTests([data, ...tests]);
-      setNewTest((prev) => ({ ...prev, title: "", subject: "", subjects: [] }));
+      setNewTest((prev) => ({
+        ...prev,
+        title: "",
+        subject: "",
+        subjects: [],
+        shuffleQuestions: false,
+        shuffleOptions: false,
+      }));
       toast({ title: "Test created successfully" });
     } catch (error) {
       toast({ title: "Failed to create test", variant: "destructive" });
@@ -264,12 +278,16 @@ const TestManager = () => {
   const openRenameDialog = (test: Test) => {
     setEditingTest(test);
     setEditingTitle(test.title);
+    setEditingShuffleQuestions(Boolean(test.shuffleQuestions));
+    setEditingShuffleOptions(Boolean(test.shuffleOptions));
   };
 
   const closeRenameDialog = () => {
     if (savingTestId) return;
     setEditingTest(null);
     setEditingTitle("");
+    setEditingShuffleQuestions(false);
+    setEditingShuffleOptions(false);
   };
 
   const saveTestTitle = async () => {
@@ -283,13 +301,19 @@ const TestManager = () => {
 
     setSavingTestId(editingTest._id);
     try {
-      const { data } = await api.put(`/admin/tests/${editingTest._id}`, { title: nextTitle });
+      const { data } = await api.put(`/admin/tests/${editingTest._id}`, {
+        title: nextTitle,
+        shuffleQuestions: editingShuffleQuestions,
+        shuffleOptions: editingShuffleOptions,
+      });
       setTests((current) => current.map((test) => (test._id === editingTest._id ? data : test)));
-      toast({ title: "Test renamed successfully" });
+      toast({ title: "Test updated successfully" });
       setEditingTest(null);
       setEditingTitle("");
+      setEditingShuffleQuestions(false);
+      setEditingShuffleOptions(false);
     } catch (error: any) {
-      toast({ title: error?.response?.data?.msg || "Rename failed", variant: "destructive" });
+      toast({ title: error?.response?.data?.msg || "Update failed", variant: "destructive" });
     } finally {
       setSavingTestId(null);
     }
@@ -471,7 +495,7 @@ const TestManager = () => {
 
       <Card className="bg-muted/50 border-dashed border-2">
         <CardContent className="p-6">
-          <form onSubmit={handleCreateTest} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+          <form onSubmit={handleCreateTest} className="grid grid-cols-1 gap-4 md:grid-cols-8 md:items-end">
             <div className="space-y-1.5 flex-1">
               <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Test Title</label>
               <Input
@@ -545,6 +569,32 @@ const TestManager = () => {
               <p className="text-[11px] text-muted-foreground">Use custom marks here if this test should differ from the exam blueprint.</p>
             </div>
 
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Randomization</label>
+              <div className="grid gap-2 rounded-xl border bg-background p-3 shadow-sm">
+                <label className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">Random question order</div>
+                    <p className="text-[11px] text-muted-foreground">Each student sees the questions in a different order.</p>
+                  </div>
+                  <Switch
+                    checked={newTest.shuffleQuestions}
+                    onCheckedChange={(checked) => setNewTest((prev) => ({ ...prev, shuffleQuestions: checked }))}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">Random option order</div>
+                    <p className="text-[11px] text-muted-foreground">Options inside every question are shuffled per student.</p>
+                  </div>
+                  <Switch
+                    checked={newTest.shuffleOptions}
+                    onCheckedChange={(checked) => setNewTest((prev) => ({ ...prev, shuffleOptions: checked }))}
+                  />
+                </label>
+              </div>
+            </div>
+
             <Button type="submit" className="w-full h-10 shadow-lg hover:shadow-primary/20">
               <Plus className="mr-2 h-4 w-4" /> Create
             </Button>
@@ -578,7 +628,19 @@ const TestManager = () => {
                     <TableRow key={test._id} className="hover:bg-accent/5">
                       <TableCell className="font-semibold">{test.title}</TableCell>
                       <TableCell>
-                        <span className="text-xs px-2 py-1 bg-muted rounded-md font-medium">{test.subject}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs px-2 py-1 bg-muted rounded-md font-medium">{test.subject}</span>
+                          {test.shuffleQuestions && (
+                            <span className="text-[10px] px-2 py-1 rounded-md bg-primary/10 text-primary font-semibold uppercase tracking-wide">
+                              Random Q
+                            </span>
+                          )}
+                          {test.shuffleOptions && (
+                            <span className="text-[10px] px-2 py-1 rounded-md bg-primary/10 text-primary font-semibold uppercase tracking-wide">
+                              Random Opt
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{test._count?.questions || 0}</TableCell>
                       <TableCell>
@@ -635,23 +697,45 @@ const TestManager = () => {
       <Dialog open={Boolean(editingTest)} onOpenChange={(open) => !open && closeRenameDialog()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Rename Test</DialogTitle>
+            <DialogTitle>Edit Test</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase font-black text-muted-foreground">Test Title</label>
-            <Input
-              value={editingTitle}
-              onChange={(e) => setEditingTitle(e.target.value)}
-              placeholder="Enter test title"
-              autoFocus
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void saveTestTitle();
-                }
-              }}
-            />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-black text-muted-foreground">Test Title</label>
+              <Input
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                placeholder="Enter test title"
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void saveTestTitle();
+                  }
+                }}
+              />
+            </div>
+
+            <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+              <label className="text-[10px] uppercase font-black text-muted-foreground">Randomization</label>
+
+              <label className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium">Random question order</div>
+                  <p className="text-xs text-muted-foreground">Students will not see every question in the same sequence.</p>
+                </div>
+                <Switch checked={editingShuffleQuestions} onCheckedChange={setEditingShuffleQuestions} />
+              </label>
+
+              <label className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium">Random option order</div>
+                  <p className="text-xs text-muted-foreground">Each question's options will appear in a different order for students.</p>
+                </div>
+                <Switch checked={editingShuffleOptions} onCheckedChange={setEditingShuffleOptions} />
+              </label>
+            </div>
           </div>
 
           <DialogFooter>
@@ -659,7 +743,7 @@ const TestManager = () => {
               Cancel
             </Button>
             <Button onClick={() => void saveTestTitle()} disabled={Boolean(savingTestId)}>
-              {savingTestId ? "Saving..." : "Save Title"}
+              {savingTestId ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

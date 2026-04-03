@@ -146,6 +146,7 @@ const QuestionEditor = () => {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSavingAll, setIsSavingAll] = useState(false);
 
   const fetchQuestions = useCallback(async () => {
     try {
@@ -341,33 +342,76 @@ const QuestionEditor = () => {
     }
   };
 
-  const saveQuestion = async (questionClientId: string) => {
-    const question = questions.find((item) => item.clientId === questionClientId);
-    if (!question) return;
+  const applySavedQuestion = (questionClientId: string, savedQuestion: Partial<Question>) => {
+    setQuestions((current) =>
+      current.map((currentQuestion) =>
+        currentQuestion.clientId === questionClientId
+          ? normalizeQuestion(
+              {
+                ...savedQuestion,
+                clientId: questionClientId,
+              },
+              currentQuestion.subject || availableSubjects[0] || ""
+            )
+          : currentQuestion
+      )
+    );
+  };
 
+  const persistQuestion = async (questionClientId: string) => {
+    const question = questions.find((item) => item.clientId === questionClientId);
+    if (!question) return null;
+
+    const payload = serializeQuestion(question);
+    const { data } = await api.post(`/admin/tests/${testId}/questions`, payload);
+    applySavedQuestion(questionClientId, data);
+    return data;
+  };
+
+  const saveQuestion = async (questionClientId: string) => {
     setSavingId(questionClientId);
     try {
-      const payload = serializeQuestion(question);
-      const { data } = await api.post(`/admin/tests/${testId}/questions`, payload);
-      setQuestions((current) =>
-        current.map((currentQuestion) =>
-          currentQuestion.clientId === questionClientId
-            ? normalizeQuestion(
-                {
-                  ...data,
-                  clientId: questionClientId,
-                },
-                currentQuestion.subject || availableSubjects[0] || ""
-              )
-            : currentQuestion
-        )
-      );
+      await persistQuestion(questionClientId);
       toast({ title: "Question saved" });
     } catch (error) {
       toast({ title: "Save failed", variant: "destructive" });
     } finally {
       setSavingId(null);
     }
+  };
+
+  const saveAllQuestions = async () => {
+    if (questions.length === 0) {
+      toast({ title: "No questions to save" });
+      return;
+    }
+
+    setIsSavingAll(true);
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const question of questions) {
+      setSavingId(question.clientId);
+      try {
+        await persistQuestion(question.clientId);
+        successCount += 1;
+      } catch (error) {
+        failedCount += 1;
+      }
+    }
+
+    setSavingId(null);
+    setIsSavingAll(false);
+
+    if (failedCount === 0) {
+      toast({ title: `All ${successCount} questions saved successfully` });
+      return;
+    }
+
+    toast({
+      title: `${successCount} question${successCount === 1 ? "" : "s"} saved, ${failedCount} failed`,
+      variant: "destructive",
+    });
   };
 
   const deleteQuestion = async (questionClientId: string) => {
@@ -402,7 +446,7 @@ const QuestionEditor = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-2">
           <Link to="/">
             <Button variant="outline"><Home className="mr-2 h-4 w-4" /> Home</Button>
@@ -411,7 +455,13 @@ const QuestionEditor = () => {
             <Button variant="ghost"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
           </Link>
         </div>
-        <h1 className="text-2xl font-bold">Edit Questions</h1>
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <h1 className="text-2xl font-bold">Edit Questions</h1>
+          <Button onClick={() => void saveAllQuestions()} disabled={isSavingAll || Boolean(savingId)}>
+            {isSavingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Save All
+          </Button>
+        </div>
       </div>
 
       {questions.map((q, qIdx) => (
@@ -419,7 +469,7 @@ const QuestionEditor = () => {
           <CardHeader className="bg-muted/50 p-4 border-b flex flex-row justify-between items-center">
             <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Question {qIdx + 1}</CardTitle>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => saveQuestion(q.clientId)} disabled={savingId === q.clientId}>
+              <Button size="sm" variant="outline" onClick={() => saveQuestion(q.clientId)} disabled={isSavingAll || savingId === q.clientId}>
                 {savingId === q.clientId ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-1" />}
                 Save {q._id ? "Update" : "New"}
               </Button>
@@ -428,7 +478,7 @@ const QuestionEditor = () => {
                 variant="ghost"
                 className="text-destructive h-8 w-8 hover:bg-red-50"
                 onClick={() => deleteQuestion(q.clientId)}
-                disabled={deletingId === (q._id || q.clientId)}
+                disabled={isSavingAll || deletingId === (q._id || q.clientId)}
               >
                 {deletingId === (q._id || q.clientId) ? <Loader2 className="animate-spin h-4 w-4" /> : <Trash className="h-4 w-4" />}
               </Button>
@@ -648,7 +698,7 @@ const QuestionEditor = () => {
         </Card>
       ))}
 
-      <Button variant="link" className="w-full border-2 border-dashed h-20 text-muted-foreground rounded-xl flex items-center gap-2 hover:bg-accent/10" onClick={handleAddQuestion}>
+      <Button variant="link" className="w-full border-2 border-dashed h-20 text-muted-foreground rounded-xl flex items-center gap-2 hover:bg-accent/10" onClick={handleAddQuestion} disabled={isSavingAll}>
         <PlusCircle className="h-6 w-6" /> Add New Question
       </Button>
     </div>

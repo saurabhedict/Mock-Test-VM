@@ -296,7 +296,7 @@ exports.deleteExam = async (req, res) => {
 // @access  Private/Admin
 exports.createTest = async (req, res) => {
   try {
-    const { title, exam, subject, subjects, durationMinutes, totalMarks } = req.body;
+    const { title, exam, subject, subjects, durationMinutes, totalMarks, shuffleQuestions, shuffleOptions } = req.body;
     const test = await Test.create({
       title,
       exam,
@@ -304,6 +304,8 @@ exports.createTest = async (req, res) => {
       subjects: Array.isArray(subjects) && subjects.length ? subjects : [subject],
       durationMinutes: parseInt(durationMinutes),
       totalMarks: parseInt(totalMarks),
+      shuffleQuestions: Boolean(shuffleQuestions),
+      shuffleOptions: Boolean(shuffleOptions),
     });
     res.status(201).json(test);
   } catch (error) {
@@ -328,6 +330,12 @@ exports.updateTest = async (req, res) => {
     }
 
     test.title = title;
+    if (req.body?.shuffleQuestions !== undefined) {
+      test.shuffleQuestions = Boolean(req.body.shuffleQuestions);
+    }
+    if (req.body?.shuffleOptions !== undefined) {
+      test.shuffleOptions = Boolean(req.body.shuffleOptions);
+    }
     await test.save();
 
     const populatedTest = await Test.findById(test._id)

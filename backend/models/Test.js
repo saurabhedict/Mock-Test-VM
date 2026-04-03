@@ -8,6 +8,8 @@ const testSchema = new mongoose.Schema(
     subjects: [{ type: String }],
     durationMinutes: { type: Number, required: true },
     totalMarks: { type: Number, required: true },
+    shuffleQuestions: { type: Boolean, default: false },
+    shuffleOptions: { type: Boolean, default: false },
     isPublished: { type: Boolean, default: false },
     questions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
   },

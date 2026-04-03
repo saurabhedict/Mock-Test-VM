@@ -33,27 +33,15 @@ import {
   isCorrectAnswer,
   type AnswerValue,
   type ExamSubjectMarkingRule,
-  type MultipleCorrectScoringMode,
-  type QuestionType,
 } from '@/lib/scoring';
+import {
+  reorderQuestionUsingSavedOptions,
+  type BaseTestQuestion,
+  type DisplayTestQuestion,
+} from '@/lib/testRandomization';
 import type { TestAnalysis } from '@/types/ai';
 
-interface Question {
-  id: string;
-  question: string;
-  questionType?: QuestionType;
-  questionImage?: string;
-  options: any[];
-  correctAnswer: number;
-  correctAnswers?: number[];
-  writtenAnswer?: string;
-  subject: string;
-  explanation: string;
-  explanationImage?: string;
-  marksPerQuestion?: number;
-  negativeMarksPerQuestion?: number;
-  multipleCorrectScoringMode?: MultipleCorrectScoringMode;
-}
+type Question = DisplayTestQuestion;
 
 interface ResultData {
   testId: string;
@@ -62,6 +50,7 @@ interface ResultData {
   timeTaken: number;
   perQuestionTimes?: number[];
   subjects?: ExamSubjectMarkingRule[];
+  optionOrderByQuestionId?: Record<string, number[]>;
   submissionStatus?: 'COMPLETED' | 'AUTO_SUBMITTED';
   autoSubmitReason?: string | null;
   summary?: {
@@ -191,18 +180,42 @@ export default function ResultsPage() {
             const latest = latestQuestions.get(question.id);
             if (!latest) return question;
 
+            const reorderedLatest = reorderQuestionUsingSavedOptions(
+              {
+                id: latest._id || latest.id,
+                question: latest.question,
+                questionType: latest.questionType || 'single',
+                questionImage: latest.questionImage,
+                options: latest.options || [],
+                correctAnswer: latest.correctAnswer,
+                correctAnswers: latest.correctAnswers || [],
+                writtenAnswer: latest.writtenAnswer || '',
+                subject: latest.subject,
+                explanation: latest.explanation || '',
+                explanationImage: latest.explanationImage,
+                marksPerQuestion: latest.marksPerQuestion ?? question.marksPerQuestion,
+                negativeMarksPerQuestion: latest.negativeMarksPerQuestion ?? question.negativeMarksPerQuestion,
+                multipleCorrectScoringMode: latest.multipleCorrectScoringMode || 'full_only',
+              } as BaseTestQuestion,
+              current.optionOrderByQuestionId?.[question.id],
+              question.originalQuestionIndex,
+            );
+
             return {
               ...question,
-              questionImage: latest.questionImage ?? question.questionImage,
-              options: latest.options?.length ? latest.options : question.options,
-              correctAnswer: latest.correctAnswer ?? question.correctAnswer,
-              correctAnswers: latest.correctAnswers?.length ? latest.correctAnswers : question.correctAnswers,
-              writtenAnswer: latest.writtenAnswer ?? question.writtenAnswer,
-              explanation: latest.explanation ?? question.explanation,
-              explanationImage: latest.explanationImage ?? question.explanationImage,
-              marksPerQuestion: latest.marksPerQuestion ?? question.marksPerQuestion,
-              negativeMarksPerQuestion: latest.negativeMarksPerQuestion ?? question.negativeMarksPerQuestion,
-              multipleCorrectScoringMode: latest.multipleCorrectScoringMode ?? question.multipleCorrectScoringMode,
+              question: reorderedLatest.question,
+              questionType: reorderedLatest.questionType,
+              questionImage: reorderedLatest.questionImage ?? question.questionImage,
+              options: reorderedLatest.options.length ? reorderedLatest.options : question.options,
+              correctAnswer: reorderedLatest.correctAnswer ?? question.correctAnswer,
+              correctAnswers: reorderedLatest.correctAnswers?.length ? reorderedLatest.correctAnswers : question.correctAnswers,
+              writtenAnswer: reorderedLatest.writtenAnswer ?? question.writtenAnswer,
+              subject: reorderedLatest.subject || question.subject,
+              explanation: reorderedLatest.explanation ?? question.explanation,
+              explanationImage: reorderedLatest.explanationImage ?? question.explanationImage,
+              marksPerQuestion: reorderedLatest.marksPerQuestion ?? question.marksPerQuestion,
+              negativeMarksPerQuestion: reorderedLatest.negativeMarksPerQuestion ?? question.negativeMarksPerQuestion,
+              multipleCorrectScoringMode: reorderedLatest.multipleCorrectScoringMode ?? question.multipleCorrectScoringMode,
             };
           });
 
