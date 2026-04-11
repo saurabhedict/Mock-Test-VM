@@ -29,6 +29,32 @@ const deleteUserCascade = async (userId) => {
   };
 };
 
+const deleteUsersCascade = async (userIds = []) => {
+  const uniqueUserIds = [...new Set(userIds.map((value) => String(value)).filter(Boolean))];
+
+  if (uniqueUserIds.length === 0) {
+    const error = new Error("At least one user must be selected");
+    error.status = 400;
+    throw error;
+  }
+
+  const summaries = [];
+
+  for (const userId of uniqueUserIds) {
+    summaries.push(await deleteUserCascade(userId));
+  }
+
+  return {
+    deletedCount: summaries.length,
+    deletedUserIds: summaries.map((summary) => summary.deletedUserId),
+    deletedAttempts: summaries.reduce((total, summary) => total + (summary.deletedAttempts || 0), 0),
+    deletedPayments: summaries.reduce((total, summary) => total + (summary.deletedPayments || 0), 0),
+    deletedAiChatSessions: summaries.reduce((total, summary) => total + (summary.deletedAiChatSessions || 0), 0),
+    summaries,
+  };
+};
+
 module.exports = {
   deleteUserCascade,
+  deleteUsersCascade,
 };

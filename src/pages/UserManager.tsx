@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useExams } from "@/hooks/useExams";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Users, ShieldCheck, ShieldOff, Search, ChevronLeft, ChevronRight,
   LayoutDashboard, Loader2, RefreshCw, Crown, GraduationCap,
@@ -39,6 +40,8 @@ interface PageMeta {
 }
 
 type RoleFilter = "" | "admin" | "student";
+
+const PAGE_LIMIT = 20;
 
 function Avatar({ user }: { user: UserRow }) {
   if (user.profilePhoto) {
@@ -130,16 +133,19 @@ function ConfirmRoleModal({
 }
 
 function ConfirmDeleteModal({
-  user,
+  users,
   onConfirm,
   onCancel,
   loading,
 }: {
-  user: UserRow;
+  users: UserRow[];
   onConfirm: () => void;
   onCancel: () => void;
   loading: boolean;
 }) {
+  const isBulkDelete = users.length > 1;
+  const previewUsers = users.slice(0, 4);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
@@ -152,11 +158,42 @@ function ConfirmDeleteModal({
           <Trash2 className="w-7 h-7 text-red-500" />
         </div>
 
-        <h3 className="text-lg font-bold text-foreground mb-1">Delete User Account?</h3>
+        <h3 className="text-lg font-bold text-foreground mb-1">
+          {isBulkDelete ? `Delete ${users.length} User Accounts?` : "Delete User Account?"}
+        </h3>
         <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-          <strong className="text-foreground">{user.name}</strong> will be removed permanently. Their attempts,
-          payment records, and AI chat sessions will be deleted as part of the cleanup.
+          {isBulkDelete ? (
+            <>
+              The selected accounts will be removed permanently. Their attempts, payment records, and AI chat
+              sessions will be deleted as part of the cleanup.
+            </>
+          ) : (
+            <>
+              <strong className="text-foreground">{users[0]?.name}</strong> will be removed permanently. Their
+              attempts, payment records, and AI chat sessions will be deleted as part of the cleanup.
+            </>
+          )}
         </p>
+
+        {isBulkDelete && (
+          <div className="mb-5 rounded-xl border border-red-100 bg-red-50/60 p-3 dark:border-red-950/40 dark:bg-red-950/10">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">
+              Selected Users
+            </p>
+            <div className="mt-2 space-y-1.5 text-sm text-foreground">
+              {previewUsers.map((user) => (
+                <div key={user._id} className="truncate">
+                  {user.name} <span className="text-muted-foreground">({user.email})</span>
+                </div>
+              ))}
+              {users.length > previewUsers.length && (
+                <div className="text-muted-foreground">
+                  +{users.length - previewUsers.length} more user{users.length - previewUsers.length !== 1 ? "s" : ""}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <button
@@ -171,7 +208,7 @@ function ConfirmDeleteModal({
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-60"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Delete User
+            {isBulkDelete ? `Delete ${users.length} Users` : "Delete User"}
           </button>
         </div>
       </div>
@@ -185,14 +222,18 @@ function UserCard({
   user,
   currentUserId,
   examLabel,
+  selected,
   onRoleChange,
   onDelete,
+  onSelectionChange,
 }: {
   user: UserRow;
   currentUserId: string;
   examLabel: string;
+  selected: boolean;
   onRoleChange: (user: UserRow, role: "admin" | "student") => void;
   onDelete: (user: UserRow) => void;
+  onSelectionChange: (checked: boolean | "indeterminate") => void;
 }) {
   const isCurrentUser = user._id === currentUserId;
   const isAdmin = user.role === "admin";
@@ -207,6 +248,14 @@ function UserCard({
       )}
 
       <div className="flex items-start gap-3">
+        <div className="pt-1">
+          <Checkbox
+            checked={selected}
+            onCheckedChange={onSelectionChange}
+            disabled={isCurrentUser}
+            aria-label={isCurrentUser ? `Cannot select ${user.name}` : `Select ${user.name}`}
+          />
+        </div>
         <Avatar user={user} />
 
         <div className="flex-1 min-w-0">
@@ -318,15 +367,28 @@ export default function UserManager() {
   // Role change confirm modal state
   const [pendingChange, setPendingChange] = useState<{ user: UserRow; newRole: "admin" | "student" } | null>(null);
   const [changingRole, setChangingRole] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<UserRow | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [pendingDeleteUsers, setPendingDeleteUsers] = useState<UserRow[]>([]);
   const [deletingUser, setDeletingUser] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({ total: 0, admins: 0, students: 0, verified: 0 });
+  const currentUserId = currentUser?._id || "";
   const examLabelMap = useMemo(
     () => new Map(exams.map((exam) => [exam.examId, exam.shortName || exam.examName])),
     [exams]
   );
+  const selectableUsers = useMemo(
+    () => users.filter((user) => user._id !== currentUserId),
+    [currentUserId, users]
+  );
+  const selectedUsers = useMemo(
+    () => selectableUsers.filter((user) => selectedUserIds.includes(user._id)),
+    [selectableUsers, selectedUserIds]
+  );
+  const allSelectableUsersSelected =
+    selectableUsers.length > 0 && selectableUsers.every((user) => selectedUserIds.includes(user._id));
+  const someSelectableUsersSelected = selectedUserIds.length > 0 && !allSelectableUsersSelected;
 
   // Debounce search
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -342,13 +404,17 @@ export default function UserManager() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = { page, limit: 20 };
+      const params: Record<string, string | number> = { page, limit: PAGE_LIMIT };
       if (debouncedSearch) params.search = debouncedSearch;
       if (roleFilter) params.role = roleFilter;
 
       const { data } = await api.get("/admin/users", { params });
       setUsers(data.users || []);
-      setMeta({ total: data.total, page: data.page, pages: data.pages });
+      setMeta({
+        total: data.total,
+        page: data.page,
+        pages: Math.max(data.pages || 0, 1),
+      });
 
       // Fetch stats separately only on first load or after role change
       if (page === 1 && !debouncedSearch && !roleFilter) {
@@ -371,6 +437,12 @@ export default function UserManager() {
   }, [debouncedSearch, page, roleFilter, toast]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  useEffect(() => {
+    setSelectedUserIds((current) =>
+      current.filter((id) => users.some((user) => user._id === id && user._id !== currentUserId))
+    );
+  }, [currentUserId, users]);
 
   // Initial stats fetch
   useEffect(() => {
@@ -432,36 +504,67 @@ export default function UserManager() {
     setPage(1);
   };
 
-  const handleDeleteUser = async () => {
-    if (!pendingDelete) return;
+  const toggleUserSelection = (userId: string, checked: boolean | "indeterminate") => {
+    setSelectedUserIds((current) => {
+      if (checked === true) {
+        return current.includes(userId) ? current : [...current, userId];
+      }
+
+      return current.filter((id) => id !== userId);
+    });
+  };
+
+  const toggleSelectAllUsers = (checked: boolean | "indeterminate") => {
+    if (checked === true) {
+      setSelectedUserIds(selectableUsers.map((user) => user._id));
+      return;
+    }
+
+    setSelectedUserIds([]);
+  };
+
+  const refreshUserListAfterDelete = (deletedCount: number) => {
+    const nextTotal = Math.max(meta.total - deletedCount, 0);
+    const nextPages = Math.max(1, Math.ceil(nextTotal / PAGE_LIMIT));
+    const nextPage = Math.min(page, nextPages);
+
+    if (nextPage !== page) {
+      setPage(nextPage);
+      return;
+    }
+
+    void fetchUsers();
+  };
+
+  const handleDeleteUsers = async () => {
+    if (pendingDeleteUsers.length === 0) return;
+
+    const ids = pendingDeleteUsers.map((user) => user._id);
     setDeletingUser(true);
     try {
-      const { data } = await api.delete(`/admin/users/${pendingDelete._id}`);
-      setUsers((prev) => prev.filter((entry) => entry._id !== pendingDelete._id));
-      setMeta((prev) => ({
-        ...prev,
-        total: Math.max(prev.total - 1, 0),
-      }));
+      const { data } = await api.delete("/admin/users", { data: { ids } });
+      setSelectedUserIds((current) => current.filter((id) => !ids.includes(id)));
       setStats((prev) => ({
-        total: Math.max(prev.total - 1, 0),
-        admins: pendingDelete.role === "admin" ? Math.max(prev.admins - 1, 0) : prev.admins,
-        students: pendingDelete.role === "student" ? Math.max(prev.students - 1, 0) : prev.students,
-        verified: pendingDelete.isVerified ? Math.max(prev.verified - 1, 0) : prev.verified,
+        total: Math.max(prev.total - pendingDeleteUsers.length, 0),
+        admins: Math.max(prev.admins - pendingDeleteUsers.filter((user) => user.role === "admin").length, 0),
+        students: Math.max(prev.students - pendingDeleteUsers.filter((user) => user.role === "student").length, 0),
+        verified: Math.max(prev.verified - pendingDeleteUsers.filter((user) => user.isVerified).length, 0),
       }));
+      refreshUserListAfterDelete(data?.deletedCount || pendingDeleteUsers.length);
       toast({ title: data?.message || "User deleted successfully" });
-      setPendingDelete(null);
+      setPendingDeleteUsers([]);
     } catch (err) {
       const message =
         err instanceof AxiosError
-          ? (err as AxiosError<{ message?: string }>).response?.data?.message || "Failed to delete user"
-          : "Failed to delete user";
+          ? (err as AxiosError<{ message?: string }>).response?.data?.message || "Failed to delete selected users"
+          : "Failed to delete selected users";
       toast({ title: message, variant: "destructive" });
     } finally {
       setDeletingUser(false);
     }
   };
 
-  const hasFilters = debouncedSearch || roleFilter;
+  const hasFilters = Boolean(debouncedSearch || roleFilter);
 
   return (
     <>
@@ -475,11 +578,11 @@ export default function UserManager() {
           loading={changingRole}
         />
       )}
-      {pendingDelete && (
+      {pendingDeleteUsers.length > 0 && (
         <ConfirmDeleteModal
-          user={pendingDelete}
-          onConfirm={handleDeleteUser}
-          onCancel={() => setPendingDelete(null)}
+          users={pendingDeleteUsers}
+          onConfirm={handleDeleteUsers}
+          onCancel={() => setPendingDeleteUsers([])}
           loading={deletingUser}
         />
       )}
@@ -497,7 +600,7 @@ export default function UserManager() {
             </Link>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">User Manager</h1>
-              <p className="text-sm text-muted-foreground">View all registered users and manage admin access</p>
+              <p className="text-sm text-muted-foreground">View users, manage admin access, and delete multiple accounts together</p>
             </div>
           </div>
           <div className="flex gap-2 self-start sm:self-auto">
@@ -587,6 +690,50 @@ export default function UserManager() {
           </div>
         </div>
 
+        {!loading && users.length > 0 && (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  checked={allSelectableUsersSelected ? true : someSelectableUsersSelected ? "indeterminate" : false}
+                  onCheckedChange={toggleSelectAllUsers}
+                  disabled={selectableUsers.length === 0}
+                  aria-label="Select all users on this page"
+                />
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">Bulk User Actions</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedUsers.length > 0
+                      ? `${selectedUsers.length} user(s) selected on this page`
+                      : "Use the checkboxes below to select users for bulk delete."}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteUsers(selectedUsers)}
+                  disabled={selectedUsers.length === 0 || deletingUser}
+                  className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Selected
+                </button>
+                {selectedUsers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUserIds([])}
+                    disabled={deletingUser}
+                    className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/40 disabled:opacity-50"
+                  >
+                    Clear Selection
+                  </button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Results info */}
         {!loading && (
           <div className="flex items-center justify-between">
@@ -626,10 +773,12 @@ export default function UserManager() {
               <UserCard
                 key={user._id}
                 user={user}
-                currentUserId={currentUser?._id || ""}
+                currentUserId={currentUserId}
                 examLabel={user.examPref ? examLabelMap.get(user.examPref) || user.examPref : "—"}
+                selected={selectedUserIds.includes(user._id)}
                 onRoleChange={(u, role) => setPendingChange({ user: u, newRole: role })}
-                onDelete={(u) => setPendingDelete(u)}
+                onDelete={(u) => setPendingDeleteUsers([u])}
+                onSelectionChange={(checked) => toggleUserSelection(user._id, checked)}
               />
             ))}
           </div>

@@ -3,7 +3,7 @@ const Test = require('../models/Test');
 const TestAttempt = require('../models/TestAttempt');
 const Exam = require('../models/Exam');
 const Question = require('../models/Question');
-const { deleteUserCascade } = require('../services/userDeletionService');
+const { deleteUserCascade, deleteUsersCascade } = require('../services/userDeletionService');
 const { stripHtml } = require('../utils/plainText');
 const { clearCachedValuesByPrefix } = require('../utils/inMemoryCache');
 const { normalizeExamAvailabilityStatus } = require('../utils/examAvailability');
@@ -164,6 +164,35 @@ exports.deleteUser = async (req, res) => {
     });
   } catch (error) {
     console.error("DeleteUser error:", error);
+    res.status(error.status || 500).json({ success: false, message: error.message || "Server error" });
+  }
+};
+
+exports.deleteUsersBulk = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? req.body.ids.map((value) => String(value)).filter(Boolean)
+      : [];
+
+    if (ids.length === 0) {
+      return res.status(400).json({ success: false, message: "Select at least one user to delete" });
+    }
+
+    if (ids.includes(req.user._id.toString())) {
+      return res.status(400).json({ success: false, message: "You cannot delete your own account from admin" });
+    }
+
+    const summary = await deleteUsersCascade(ids);
+    res.json({
+      success: true,
+      message:
+        summary.deletedCount === 1
+          ? "User deleted successfully"
+          : `${summary.deletedCount} users deleted successfully`,
+      ...summary,
+    });
+  } catch (error) {
+    console.error("DeleteUsersBulk error:", error);
     res.status(error.status || 500).json({ success: false, message: error.message || "Server error" });
   }
 };

@@ -9,6 +9,7 @@ const {
   getTestAttempts,
   getUsers,
   deleteUser,
+  deleteUsersBulk,
   setUserRole,
   getAllExams,
   createExam,
@@ -29,6 +30,7 @@ router.use(admin);
 
 router.get('/stats', getDashboardStats);
 router.get('/users', getUsers);
+router.delete('/users', deleteUsersBulk);
 router.put('/users/:id/role', setUserRole);
 router.delete('/users/:id', deleteUser);
 router.get('/coupons', listCoupons);
