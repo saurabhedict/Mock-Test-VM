@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { typesetMath } from "@/lib/mathjax";
+import renderMathInElement from "katex/contrib/auto-render";
+import "katex/dist/katex.min.css";
 import { isRichTextBlank, normalizeRichText } from "@/lib/richText";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +14,23 @@ export default function FormattedContent({ html = "", className }: FormattedCont
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    void typesetMath(contentRef.current);
+    const container = contentRef.current;
+    if (!container) return;
+
+    // Use KaTeX globally for uniform math rendering
+    window.requestAnimationFrame(() => {
+      renderMathInElement(container, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+        ],
+        ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"],
+        ignoredClasses: ["no-math"],
+        throwOnError: false,
+        strict: "ignore",
+      });
+    });
   }, [normalizedHtml]);
 
   if (isRichTextBlank(html)) return null;

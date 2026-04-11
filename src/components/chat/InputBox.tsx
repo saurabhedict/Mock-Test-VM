@@ -39,12 +39,8 @@ export default function InputBox({
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    const timeoutId = window.setTimeout(() => {
-      textarea.style.height = "0px";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
-    }, 30);
-
-    return () => window.clearTimeout(timeoutId);
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
   }, [value]);
 
   const canSend = Boolean(value.trim() || attachments.length > 0) && !disabled;

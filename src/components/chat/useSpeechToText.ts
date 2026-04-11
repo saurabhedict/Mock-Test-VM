@@ -61,23 +61,26 @@ export const useSpeechToText = (onTranscript: (text: string) => void) => {
 
     recognition.onresult = (event) => {
       let finalTranscript = "";
-      let nextInterimTranscript = "";
+        const nextInterimTranscript = Array.from(event.results)
+        .slice(event.resultIndex)
+        .filter((result) => !result.isFinal)
+        .map((result) => result[0]?.transcript?.trim() || "")
+        .filter(Boolean)
+        .join(" ")
+        .trim();
 
       Array.from(event.results)
         .slice(event.resultIndex)
+        .filter((result) => result.isFinal)
         .forEach((result) => {
           const transcript = result[0]?.transcript?.trim() || "";
-          if (!transcript) return;
-
-          if (result.isFinal) {
-            finalTranscript = `${finalTranscript} ${transcript}`.trim();
-            return;
-          }
-
-          nextInterimTranscript = `${nextInterimTranscript} ${transcript}`.trim();
+          if (transcript) finalTranscript = `${finalTranscript} ${transcript}`.trim();
         });
 
-      setInterimTranscript(nextInterimTranscript);
+      // Throttle interim transcript updates to ~10fps to avoid layout thrashing
+      window.requestAnimationFrame(() => {
+        setInterimTranscript(nextInterimTranscript);
+      });
 
       if (finalTranscript) {
         onTranscript(finalTranscript);

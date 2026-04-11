@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Bot, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api from "@/services/api";
 import ChatContainer from "@/components/chat/ChatContainer";
 import InputBox from "@/components/chat/InputBox";
@@ -257,7 +257,7 @@ export default function StudentAiChatPanel({
     viewport.scrollTo({ top: viewport.scrollHeight, behavior });
   };
 
-  const updateScrollState = () => {
+  const updateScrollState = useCallback(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
 
@@ -265,7 +265,7 @@ export default function StudentAiChatPanel({
     const isNearBottom = distanceFromBottom < 96;
     shouldAutoScrollRef.current = isNearBottom;
     setShowJumpToLatest(!isNearBottom);
-  };
+  }, []);
 
   const persistConversation = (nextSessionId: string, nextMessages: ChatMessage[]) => {
     const now = new Date().toISOString();
@@ -331,8 +331,6 @@ export default function StudentAiChatPanel({
       const frame = window.requestAnimationFrame(() => scrollToBottom(behavior));
       return () => window.cancelAnimationFrame(frame);
     }
-
-    setShowJumpToLatest(true);
   }, [messages, submitting]);
 
   const openSession = (nextSessionId: string) => {
@@ -568,7 +566,7 @@ export default function StudentAiChatPanel({
               submitting={submitting}
               showJumpToLatest={showJumpToLatest}
               viewportRef={viewportRef}
-              onPromptClick={(nextPrompt) => void sendMessage(nextPrompt)}
+              onPromptClick={sendMessage}
               onScroll={updateScrollState}
               onJumpToLatest={() => {
                 shouldAutoScrollRef.current = true;
