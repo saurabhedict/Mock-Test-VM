@@ -9,6 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash, Edit, CheckCircle2, XCircle, LayoutGrid, BookOpen, MinusCircle, Pencil, Home } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import {
+  EXAM_AVAILABILITY_OPTIONS,
+  getExamAvailabilityBadgeClass,
+  getExamAvailabilityLabel,
+  normalizeExamAvailabilityStatus,
+  type ExamAvailabilityStatus,
+} from "@/lib/examAvailability";
 import { mergeExamCatalog, type DynamicExam } from "@/lib/examCatalog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -60,10 +67,12 @@ const TestManager = () => {
     description: "",
     icon: "📝",
     durationMinutes: 60,
+    availabilityStatus: "available" as ExamAvailabilityStatus,
     subjects: [emptyExamSubject()],
   });
   const [loading, setLoading] = useState(true);
   const [savingExam, setSavingExam] = useState(false);
+  const [savingAvailabilityExamId, setSavingAvailabilityExamId] = useState<string | null>(null);
   const [editingTest, setEditingTest] = useState<Test | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingShuffleQuestions, setEditingShuffleQuestions] = useState(false);
@@ -120,6 +129,21 @@ const TestManager = () => {
   const selectedExam = examCatalog.find((exam) => exam.examId === newTest.exam);
   const selectedExamSubjects = selectedExam?.subjects.map((subject) => subject.subjectName) || [];
 
+  const buildExamPayload = (exam: DynamicExam, availabilityStatus?: ExamAvailabilityStatus) => ({
+    name: exam.examName,
+    shortName: exam.shortName,
+    description: exam.description || "",
+    icon: exam.icon || "📝",
+    durationMinutes: exam.durationMinutes,
+    availabilityStatus: normalizeExamAvailabilityStatus(availabilityStatus || exam.availabilityStatus),
+    subjects: exam.subjects.map((subject) => ({
+      name: subject.name,
+      questionCount: subject.questionCount,
+      marksPerQuestion: subject.marksPerQuestion,
+      negativeMarksPerQuestion: subject.negativeMarksPerQuestion ?? 0,
+    })),
+  });
+
   const updateExamSubject = (index: number, updates: Partial<ExamFormSubject>) => {
     setNewExam((prev) => ({
       ...prev,
@@ -172,6 +196,7 @@ const TestManager = () => {
         description: "",
         icon: "📝",
         durationMinutes: 60,
+        availabilityStatus: "available",
         subjects: [emptyExamSubject()],
       });
       const firstSubject = data.subjects[0]?.name || "";
@@ -199,6 +224,7 @@ const TestManager = () => {
       description: exam.description || "",
       icon: exam.icon || "📝",
       durationMinutes: exam.durationMinutes,
+      availabilityStatus: normalizeExamAvailabilityStatus(exam.availabilityStatus),
       subjects: exam.subjects.map((subject) => ({
         name: subject.name,
         questionCount: subject.questionCount,
@@ -217,8 +243,27 @@ const TestManager = () => {
       description: "",
       icon: "📝",
       durationMinutes: 60,
+      availabilityStatus: "available",
       subjects: [emptyExamSubject()],
     });
+  };
+
+  const updateExamAvailability = async (exam: DynamicExam, availabilityStatus: ExamAvailabilityStatus) => {
+    if (normalizeExamAvailabilityStatus(exam.availabilityStatus) === availabilityStatus) return;
+
+    setSavingAvailabilityExamId(exam._id);
+    try {
+      const { data } = await api.put(`/admin/exams/${exam._id}`, buildExamPayload(exam, availabilityStatus));
+      setExams((current) => current.map((item) => (item._id === exam._id ? data : item)));
+      if (newExam.id === exam._id) {
+        setNewExam((current) => ({ ...current, availabilityStatus }));
+      }
+      toast({ title: `Exam marked as ${getExamAvailabilityLabel(availabilityStatus)}` });
+    } catch (error: any) {
+      toast({ title: error?.response?.data?.msg || "Failed to update availability", variant: "destructive" });
+    } finally {
+      setSavingAvailabilityExamId(null);
+    }
   };
 
   const handleDeleteExam = async (exam: DynamicExam) => {
@@ -389,6 +434,28 @@ const TestManager = () => {
               />
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Student Availability</label>
+              <Select
+                value={newExam.availabilityStatus}
+                onValueChange={(value) => setNewExam({ ...newExam, availabilityStatus: normalizeExamAvailabilityStatus(value) })}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Choose availability status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXAM_AVAILABILITY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Control whether students can open this exam now, or only see a Coming Soon / Tests Unavailable label.
+              </p>
+            </div>
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Subjects and Marking</label>
@@ -462,10 +529,13 @@ const TestManager = () => {
             {exams.length > 0 ? exams.map((exam) => (
               <div key={exam._id} className="rounded-xl border bg-card p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xl">{exam.icon}</span>
                     <span className="font-semibold">{exam.shortName}</span>
                     <span className="text-xs text-muted-foreground">({exam.examId})</span>
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${getExamAvailabilityBadgeClass(exam.availabilityStatus)}`}>
+                      {getExamAvailabilityLabel(exam.availabilityStatus)}
+                    </span>
                   </div>
                   <p className="text-sm text-muted-foreground">{exam.description || exam.examName}</p>
                   <div className="text-xs text-muted-foreground">
@@ -477,13 +547,31 @@ const TestManager = () => {
                       : "No negative marking"}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => handleEditExam(exam)}>
-                    <Pencil className="mr-2 h-4 w-4" /> Edit
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-red-600" onClick={() => handleDeleteExam(exam)}>
-                    <Trash className="mr-2 h-4 w-4" /> Delete
-                  </Button>
+                <div className="flex flex-col gap-2 md:min-w-[230px]">
+                  <Select
+                    value={normalizeExamAvailabilityStatus(exam.availabilityStatus)}
+                    onValueChange={(value) => void updateExamAvailability(exam, normalizeExamAvailabilityStatus(value))}
+                    disabled={savingAvailabilityExamId === exam._id}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Student availability" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EXAM_AVAILABILITY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleEditExam(exam)}>
+                      <Pencil className="mr-2 h-4 w-4" /> Edit
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-red-600" onClick={() => handleDeleteExam(exam)}>
+                      <Trash className="mr-2 h-4 w-4" /> Delete
+                    </Button>
+                  </div>
                 </div>
               </div>
             )) : (

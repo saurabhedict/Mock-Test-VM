@@ -4,7 +4,7 @@ const Exam = require("../models/Exam");
 const { getOrSetCachedValue } = require("../utils/inMemoryCache");
 const { toIdString } = require("../utils/toIdString");
 
-const EXAM_SELECT = "slug name shortName durationMinutes totalQuestions totalMarks subjects";
+const EXAM_SELECT = "slug name shortName durationMinutes totalQuestions totalMarks subjects availabilityStatus";
 const TEST_SELECT =
   "title exam subject subjects durationMinutes totalMarks shuffleQuestions shuffleOptions questions";
 const PUBLIC_TEST_QUESTION_SELECT =
@@ -45,6 +45,7 @@ const buildExamDetails = (exam) =>
         totalQuestions: exam.totalQuestions,
         totalMarks: exam.totalMarks,
         subjects: exam.subjects,
+        availabilityStatus: exam.availabilityStatus || "available",
       }
     : null;
 

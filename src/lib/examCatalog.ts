@@ -1,3 +1,5 @@
+import { normalizeExamAvailabilityStatus, type ExamAvailabilityStatus } from "@/lib/examAvailability";
+
 export interface DynamicExamSubject {
   name: string;
   code?: string;
@@ -18,6 +20,7 @@ export interface DynamicExam {
   totalQuestions: number;
   totalMarks: number;
   subjects: DynamicExamSubject[];
+  availabilityStatus?: ExamAvailabilityStatus;
   isActive?: boolean;
 }
 
@@ -53,6 +56,7 @@ export interface ExamCatalogItem {
   durationMinutes?: number;
   totalQuestions?: number;
   totalMarks?: number;
+  availabilityStatus: ExamAvailabilityStatus;
 }
 
 export const mapDynamicExamToCatalog = (exam: DynamicExam): ExamCatalogItem => ({
@@ -89,6 +93,7 @@ export const mapDynamicExamToCatalog = (exam: DynamicExam): ExamCatalogItem => (
   durationMinutes: exam.durationMinutes,
   totalQuestions: exam.totalQuestions,
   totalMarks: exam.totalMarks,
+  availabilityStatus: normalizeExamAvailabilityStatus(exam.availabilityStatus),
 });
 
 export const mergeExamCatalog = (dynamicExams: DynamicExam[] = []): ExamCatalogItem[] => {

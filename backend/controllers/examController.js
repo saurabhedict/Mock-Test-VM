@@ -2,6 +2,7 @@ const { setSharedCacheHeaders } = require("../utils/cacheHeaders");
 const {
   PLAN_OR_CATALOG_CACHE_TTL_MS,
 } = require("../services/testReadService");
+const { normalizeExamAvailabilityStatus } = require("../utils/examAvailability");
 const { getOrSetCachedValue } = require("../utils/inMemoryCache");
 const { toIdString } = require("../utils/toIdString");
 const Exam = require("../models/Exam");
@@ -19,6 +20,7 @@ const mapExam = (exam) => ({
   totalQuestions: exam.totalQuestions,
   totalMarks: exam.totalMarks,
   subjects: exam.subjects || [],
+  availabilityStatus: normalizeExamAvailabilityStatus(exam.availabilityStatus),
   isActive: exam.isActive,
   createdAt: exam.createdAt,
   updatedAt: exam.updatedAt,
@@ -30,7 +32,7 @@ exports.listExams = async (req, res) => {
 
     const exams = await getOrSetCachedValue("exams:list", PLAN_OR_CATALOG_CACHE_TTL_MS, async () =>
       Exam.find({ isActive: true })
-        .select("slug name shortName description icon durationMinutes totalQuestions totalMarks subjects isActive createdAt updatedAt")
+        .select("slug name shortName description icon durationMinutes totalQuestions totalMarks subjects availabilityStatus isActive createdAt updatedAt")
         .sort({ createdAt: -1 })
         .lean()
     );
@@ -48,7 +50,7 @@ exports.getExamBySlug = async (req, res) => {
 
     const exam = await getOrSetCachedValue(`exam:public:${req.params.examId}`, PLAN_OR_CATALOG_CACHE_TTL_MS, async () =>
       Exam.findOne({ slug: req.params.examId, isActive: true })
-        .select("slug name shortName description icon durationMinutes totalQuestions totalMarks subjects isActive createdAt updatedAt")
+        .select("slug name shortName description icon durationMinutes totalQuestions totalMarks subjects availabilityStatus isActive createdAt updatedAt")
         .lean()
     );
 

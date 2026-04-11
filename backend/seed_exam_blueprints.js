@@ -136,6 +136,7 @@ const withTotals = (exam) => {
     ...exam,
     totalQuestions,
     totalMarks,
+    availabilityStatus: "available",
     isActive: true,
   };
 };

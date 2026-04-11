@@ -6,6 +6,12 @@ import { Clock, FileText, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import {
+  getExamAvailabilityBadgeClass,
+  getExamAvailabilityDescription,
+  getExamAvailabilityLabel,
+  isExamOpenForStudents,
+} from '@/lib/examAvailability';
 import api from '@/services/api';
 import { findExamInCatalog, type DynamicExam } from '@/lib/examCatalog';
 import { useExams } from '@/hooks/useExams';
@@ -76,7 +82,32 @@ export default function TestListPage() {
     );
   }
 
+  if (!isExamOpenForStudents(exam.availabilityStatus)) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-16">
+          <div className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-8 text-center shadow-card">
+            <div className="text-5xl">{exam.icon}</div>
+            <span className={`mt-5 inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${getExamAvailabilityBadgeClass(exam.availabilityStatus)}`}>
+              {getExamAvailabilityLabel(exam.availabilityStatus)}
+            </span>
+            <h1 className="mt-5 text-3xl font-display font-bold text-foreground">{exam.shortName}</h1>
+            <p className="mt-3 text-muted-foreground">
+              {getExamAvailabilityDescription(exam.availabilityStatus)}
+            </p>
+            <Link to="/exams" className="mt-6 inline-flex text-sm font-medium text-primary hover:underline">
+              Back to Exams
+            </Link>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   const matchedFullLengthTestIds = new Set<string>();
+  const hasTests = tests.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,6 +127,20 @@ export default function TestListPage() {
           </div>
         )}
 
+        {!loading && !hasTests && (
+          <div className="rounded-2xl border border-dashed border-border bg-card/70 px-6 py-12 text-center shadow-sm">
+            <h2 className="text-2xl font-display font-semibold text-foreground">Tests not available yet</h2>
+            <p className="mt-3 text-muted-foreground">
+              This exam is visible, but no published tests are available right now. You can mark it as Coming Soon or Tests Unavailable from the admin exam blueprint settings whenever needed.
+            </p>
+            <Link to="/exams" className="mt-5 inline-flex text-sm font-medium text-primary hover:underline">
+              Back to Exams
+            </Link>
+          </div>
+        )}
+
+        {hasTests && (
+          <>
         {/* Dynamic / Subject-wise Tests */}
         <h2 className="text-xl font-display font-semibold text-foreground mb-4">Subject-wise Tests</h2>
         <div className="space-y-6 mb-12">
@@ -216,6 +261,8 @@ export default function TestListPage() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
       <Footer />
     </div>

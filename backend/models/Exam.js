@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { EXAM_AVAILABILITY_STATUSES } = require("../utils/examAvailability");
 
 const examSubjectSchema = new mongoose.Schema(
   {
@@ -22,6 +23,11 @@ const examSchema = new mongoose.Schema(
     totalQuestions: { type: Number, required: true, min: 0 },
     totalMarks: { type: Number, required: true, min: 0 },
     subjects: { type: [examSubjectSchema], default: [] },
+    availabilityStatus: {
+      type: String,
+      enum: EXAM_AVAILABILITY_STATUSES,
+      default: "available",
+    },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

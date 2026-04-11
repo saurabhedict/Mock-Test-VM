@@ -6,6 +6,7 @@ const Question = require('../models/Question');
 const { deleteUserCascade } = require('../services/userDeletionService');
 const { stripHtml } = require('../utils/plainText');
 const { clearCachedValuesByPrefix } = require('../utils/inMemoryCache');
+const { normalizeExamAvailabilityStatus } = require('../utils/examAvailability');
 const { toIdString } = require('../utils/toIdString');
 
 const slugify = (value = "") =>
@@ -39,6 +40,7 @@ const formatExamResponse = (exam) => ({
   totalQuestions: exam.totalQuestions,
   totalMarks: exam.totalMarks,
   subjects: exam.subjects,
+  availabilityStatus: normalizeExamAvailabilityStatus(exam.availabilityStatus),
   isActive: exam.isActive,
 });
 
@@ -280,6 +282,7 @@ exports.createExam = async (req, res) => {
       totalQuestions,
       totalMarks,
       subjects,
+      availabilityStatus: normalizeExamAvailabilityStatus(req.body.availabilityStatus),
     });
 
     clearPublicReadCaches();
@@ -329,6 +332,7 @@ exports.updateExam = async (req, res) => {
     exam.totalQuestions = totalQuestions;
     exam.totalMarks = totalMarks;
     exam.subjects = subjects;
+    exam.availabilityStatus = normalizeExamAvailabilityStatus(req.body.availabilityStatus || exam.availabilityStatus);
 
     await exam.save();
 
