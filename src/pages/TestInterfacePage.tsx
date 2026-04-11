@@ -199,6 +199,7 @@ export default function TestInterfacePage() {
   const activeQuestionRef = useRef(0);
   const questionEnteredAtRef = useRef<number | null>(null);
   const questionTimerReadyRef = useRef(false);
+  const isExitingRef = useRef(false);
 
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [testInfo, setTestInfo] = useState<TestInfo | null>(null);
@@ -269,9 +270,11 @@ export default function TestInterfacePage() {
   }, [ensureServerAttempt, instructionsAccepted, requestTestFullscreen]);
 
   const handleExitTest = useCallback(async () => {
+    isExitingRef.current = true;
+    localStorage.removeItem(`test_${testId}`);
     if (document.fullscreenElement) await document.exitFullscreen?.();
     navigate('/exams');
-  }, [navigate]);
+  }, [navigate, testId]);
 
   const getQuestionTimesPayload = useCallback((candidateState: TestState) => {
     const merged = { ...candidateState.questionTimes };
@@ -459,16 +462,40 @@ export default function TestInterfacePage() {
   }, [handleSubmit, hasStartedSession, loading, state, timeLeft]);
 
   useEffect(() => {
-    if (!state) return;
+    if (!state || isExitingRef.current) return;
 
     const storageKey = `test_${testId}`;
     const serializedState = JSON.stringify(state);
     const timer = window.setTimeout(() => {
-      localStorage.setItem(storageKey, serializedState);
+      if (!isExitingRef.current) {
+        localStorage.setItem(storageKey, serializedState);
+      }
     }, 250);
 
     return () => window.clearTimeout(timer);
   }, [state, testId]);
+
+  useEffect(() => {
+    if (!state || !questions.length) return;
+    const preloadImage = (url?: string) => {
+      if (!url) return;
+      const img = new Image();
+      img.src = url;
+    };
+
+    const currentIndex = state.currentQuestion;
+    for (let i = 1; i <= 3; i++) {
+      const nextIndex = currentIndex + i;
+      if (nextIndex < questions.length) {
+        const nextQ = questions[nextIndex];
+        preloadImage(nextQ.questionImage);
+        nextQ.options.forEach((opt) => {
+          if (typeof opt !== 'string' && opt.imageUrl) preloadImage(opt.imageUrl);
+        });
+        preloadImage(nextQ.explanationImage);
+      }
+    }
+  }, [state?.currentQuestion, questions]);
 
   useEffect(() => {
     if (!hasStartedSession || !state?.attemptId || hasSubmittedRef.current) return;
