@@ -27,6 +27,7 @@ declare global {
 export const useSpeechToText = (onTranscript: (text: string) => void) => {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const [listening, setListening] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState("");
 
   const SpeechRecognitionApi =
     typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : undefined;
@@ -59,24 +60,39 @@ export const useSpeechToText = (onTranscript: (text: string) => void) => {
     recognition.lang = "en-IN";
 
     recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .slice(event.resultIndex)
-        .filter((result) => result.isFinal)
-        .map((result) => result[0]?.transcript || "")
-        .join(" ")
-        .trim();
+      let finalTranscript = "";
+      let nextInterimTranscript = "";
 
-      if (transcript) {
-        onTranscript(transcript);
+      Array.from(event.results)
+        .slice(event.resultIndex)
+        .forEach((result) => {
+          const transcript = result[0]?.transcript?.trim() || "";
+          if (!transcript) return;
+
+          if (result.isFinal) {
+            finalTranscript = `${finalTranscript} ${transcript}`.trim();
+            return;
+          }
+
+          nextInterimTranscript = `${nextInterimTranscript} ${transcript}`.trim();
+        });
+
+      setInterimTranscript(nextInterimTranscript);
+
+      if (finalTranscript) {
+        onTranscript(finalTranscript);
+        setInterimTranscript("");
       }
     };
 
     recognition.onerror = () => {
       setListening(false);
+      setInterimTranscript("");
     };
 
     recognition.onend = () => {
       setListening(false);
+      setInterimTranscript("");
       recognitionRef.current = null;
     };
 
@@ -89,6 +105,7 @@ export const useSpeechToText = (onTranscript: (text: string) => void) => {
   return {
     supported: Boolean(SpeechRecognitionApi),
     listening,
+    interimTranscript,
     startListening,
     stopListening,
   };

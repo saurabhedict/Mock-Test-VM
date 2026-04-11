@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Bot, Check, Copy, FileImage, FileText, Paperclip, User2 } from "lucide-react";
 import MathRenderer from "@/components/MathRenderer";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,7 @@ const AttachmentPreview = ({ attachment }: { attachment: ChatAttachment }) => {
   );
 };
 
-export default function MessageBubble({ message }: MessageBubbleProps) {
+function MessageBubble({ message }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const isAssistant = message.role === "assistant";
   const attachments = message.attachments || [];
@@ -73,10 +73,10 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     <div className={cn("flex w-full", isAssistant ? "justify-start" : "justify-end")}>
       <div
         className={cn(
-          "group max-w-[min(78%,48rem)] min-w-0 rounded-[1.75rem] border px-4 py-3 sm:px-5",
+          "group min-w-0 rounded-[1.75rem] border px-4 py-3 sm:px-5",
           isAssistant
-            ? "border-[#EAE4DE] bg-white text-[#231C17] shadow-sm"
-            : "border-[#E8722A]/20 bg-[#FFF0E5] text-[#231C17]",
+            ? "max-w-[85%] border-[#EAE4DE] bg-white text-[#231C17] shadow-sm md:max-w-[65%]"
+            : "max-w-[85%] border-[#E8722A]/20 bg-[#FFF0E5] text-[#231C17] md:max-w-[65%]",
         )}
       >
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -126,12 +126,16 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           </div>
         ) : null}
 
-        {isAssistant ? (
-          <MathRenderer content={message.content} className="text-sm text-current" />
-        ) : (
-          <div className="whitespace-pre-wrap break-words text-sm leading-7">{message.content}</div>
-        )}
+        <div className={cn(isAssistant ? "max-h-[300px] overflow-y-auto pr-1" : undefined)}>
+          {isAssistant ? (
+            <MathRenderer content={message.content} className="text-sm text-current" />
+          ) : (
+            <div className="whitespace-pre-wrap break-words text-sm leading-7">{message.content}</div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+export default memo(MessageBubble);

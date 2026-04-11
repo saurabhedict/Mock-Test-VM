@@ -1,17 +1,12 @@
 import { motion } from "framer-motion";
-import { Bot, Loader2, Sparkles } from "lucide-react";
+import { Bot, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "@/services/api";
 import ChatContainer from "@/components/chat/ChatContainer";
 import InputBox from "@/components/chat/InputBox";
 import Sidebar from "@/components/chat/Sidebar";
 import { isSupportedChatAttachment, prepareChatAttachment } from "@/components/chat/chatAttachments";
-import type {
-  ChatAttachment,
-  ChatMessage,
-  ChatSessionDetail,
-  ChatSessionSummary,
-} from "@/components/chat/types";
+import type { ChatAttachment, ChatMessage, ChatSessionDetail, ChatSessionSummary } from "@/components/chat/types";
 import { useSpeechToText } from "@/components/chat/useSpeechToText";
 import { readApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
@@ -47,6 +42,7 @@ interface StudentAiChatPanelProps {
 }
 
 const MAX_ATTACHMENTS = 4;
+const STORAGE_PREFIX = "student-ai-chat";
 
 const createMessageId = (role: "user" | "assistant") =>
   globalThis.crypto?.randomUUID?.() || `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -122,27 +118,6 @@ const extractReferencedQuestionIndex = (message: string, totalQuestions: number)
   return questionNumber - 1;
 };
 
-const mapStoredAttachment = (attachment: Partial<ChatAttachment>, index: number): ChatAttachment => ({
-  id: attachment.id || createMessageId("user"),
-  name: attachment.name || `Attachment ${index + 1}`,
-  kind: attachment.kind === "image" || attachment.kind === "pdf" || attachment.kind === "text" ? attachment.kind : "text",
-  mimeType: attachment.mimeType || "",
-  size: Number(attachment.size || 0),
-  previewUrl: attachment.previewUrl,
-  extractedText: attachment.extractedText,
-  imageDataUrl: attachment.imageDataUrl,
-});
-
-const mapSessionMessage = (message: Partial<ChatMessage>, index: number): ChatMessage => ({
-  id: message.id || createMessageId(message.role === "assistant" ? "assistant" : "user"),
-  role: message.role === "assistant" ? "assistant" : "user",
-  content: message.content || "",
-  createdAt: message.createdAt || null,
-  attachments: Array.isArray(message.attachments)
-    ? message.attachments.map((attachment, attachmentIndex) => mapStoredAttachment(attachment, attachmentIndex))
-    : [],
-});
-
 const buildFallbackPrompt = (attachments: ChatAttachment[]) => {
   if (!attachments.length) {
     return "";
@@ -152,6 +127,75 @@ const buildFallbackPrompt = (attachments: ChatAttachment[]) => {
   return `Please analyze the attached file${attachments.length > 1 ? "s" : ""} (${names}) and explain the important points clearly.`;
 };
 
+const buildStorageKey = (testTitle?: string, totalQuestions = 0) =>
+  `${STORAGE_PREFIX}:${(testTitle || "practice-test").toLowerCase().replace(/\s+/g, "-")}:${totalQuestions}`;
+
+const sanitizeAttachment = (attachment: Partial<ChatAttachment>, index: number): ChatAttachment => ({
+  id: attachment.id || `attachment-${index}-${Date.now()}`,
+  name: attachment.name || `Attachment ${index + 1}`,
+  kind: attachment.kind === "image" || attachment.kind === "pdf" || attachment.kind === "text" ? attachment.kind : "text",
+  mimeType: attachment.mimeType || "",
+  size: Number(attachment.size || 0),
+  previewUrl: attachment.previewUrl,
+  extractedText: attachment.extractedText,
+  imageDataUrl: attachment.imageDataUrl,
+});
+
+const sanitizeMessage = (message: Partial<ChatMessage>, index: number): ChatMessage => ({
+  id: message.id || `message-${index}-${Date.now()}`,
+  role: message.role === "assistant" ? "assistant" : "user",
+  content: message.content || "",
+  createdAt: message.createdAt || null,
+  attachments: Array.isArray(message.attachments)
+    ? message.attachments.map((attachment, attachmentIndex) => sanitizeAttachment(attachment, attachmentIndex))
+    : [],
+});
+
+const toSessionSummary = (session: ChatSessionDetail): ChatSessionSummary => ({
+  sessionId: session.sessionId,
+  title: session.title,
+  contextLabel: session.contextLabel,
+  createdAt: session.createdAt,
+  updatedAt: session.updatedAt,
+  lastMessagePreview: session.lastMessagePreview,
+  messageCount: session.messageCount,
+});
+
+const readStoredSessions = (storageKey: string) => {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return [] as ChatSessionDetail[];
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [] as ChatSessionDetail[];
+
+    return parsed
+      .map((session: Partial<ChatSessionDetail>) => ({
+        sessionId: session.sessionId || createMessageId("assistant"),
+        title: session.title || "New chat",
+        contextLabel: session.contextLabel || "",
+        createdAt: session.createdAt || null,
+        updatedAt: session.updatedAt || null,
+        lastMessagePreview: session.lastMessagePreview || "",
+        messageCount: Number(session.messageCount || 0),
+        messages: Array.isArray(session.messages) ? session.messages.map(sanitizeMessage) : [],
+      }))
+      .filter((session: ChatSessionDetail) => session.messages.length > 0);
+  } catch {
+    return [] as ChatSessionDetail[];
+  }
+};
+
+const sortSessions = (sessions: ChatSessionDetail[]) =>
+  [...sessions].sort((left, right) => {
+    const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
+    const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+    return rightTime - leftTime;
+  });
+
+const upsertSession = (sessions: ChatSessionDetail[], nextSession: ChatSessionDetail) =>
+  sortSessions([nextSession, ...sessions.filter((session) => session.sessionId !== nextSession.sessionId)]);
+
 export default function StudentAiChatPanel({
   testTitle,
   questions,
@@ -160,15 +204,15 @@ export default function StudentAiChatPanel({
   timeTaken = 0,
   perQuestionTimes = [],
 }: StudentAiChatPanelProps) {
+  const storageKey = useMemo(() => buildStorageKey(testTitle, questions.length), [testTitle, questions.length]);
+  const activeSessionKey = `${storageKey}:active`;
   const [prompt, setPrompt] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
+  const [chatSessions, setChatSessions] = useState<ChatSessionDetail[]>([]);
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([]);
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [loadingSessions, setLoadingSessions] = useState(true);
-  const [loadingConversation, setLoadingConversation] = useState(false);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
@@ -201,9 +245,9 @@ export default function StudentAiChatPanel({
     [answers, perQuestionTimes, questions],
   );
 
+  const sessions = useMemo(() => chatSessions.map(toSessionSummary), [chatSessions]);
   const activePrompts = suggestedPrompts.length > 0 ? suggestedPrompts : quickPrompts;
-
-  const { supported: voiceSupported, listening, startListening, stopListening } = useSpeechToText((transcript) => {
+  const { supported: voiceSupported, listening, interimTranscript, startListening, stopListening } = useSpeechToText((transcript) => {
     setPrompt((current) => (current.trim() ? `${current.trimEnd()} ${transcript}` : transcript));
   });
 
@@ -223,30 +267,61 @@ export default function StudentAiChatPanel({
     setShowJumpToLatest(!isNearBottom);
   };
 
+  const persistConversation = (nextSessionId: string, nextMessages: ChatMessage[]) => {
+    const now = new Date().toISOString();
+
+    setChatSessions((current) => {
+      const existingSession = current.find((session) => session.sessionId === nextSessionId);
+      const firstUserMessage = nextMessages.find((message) => message.role === "user")?.content || existingSession?.title || "New chat";
+      const nextSession: ChatSessionDetail = {
+        sessionId: nextSessionId,
+        title: truncate(firstUserMessage, 60) || "New chat",
+        contextLabel: testTitle || "Practice Test",
+        createdAt: existingSession?.createdAt || nextMessages[0]?.createdAt || now,
+        updatedAt: now,
+        lastMessagePreview: truncate(nextMessages[nextMessages.length - 1]?.content || "", 100),
+        messageCount: nextMessages.length,
+        messages: nextMessages,
+      };
+
+      return upsertSession(current, nextSession);
+    });
+  };
+
   useEffect(() => {
-    let cancelled = false;
+    const storedSessions = readStoredSessions(storageKey);
+    setChatSessions(storedSessions);
 
-    const loadSessions = async () => {
-      try {
-        const { data } = await api.get("/chat/sessions");
-        if (cancelled) return;
-        setSessions(Array.isArray(data.sessions) ? data.sessions : []);
-      } catch {
-        if (cancelled) return;
-        setSessions([]);
-      } finally {
-        if (!cancelled) {
-          setLoadingSessions(false);
-        }
-      }
-    };
+    const activeSessionId = localStorage.getItem(activeSessionKey) || "";
+    if (!activeSessionId) {
+      setSessionId("");
+      setMessages([]);
+      return;
+    }
 
-    void loadSessions();
+    const activeSession = storedSessions.find((session) => session.sessionId === activeSessionId);
+    if (!activeSession) {
+      setSessionId("");
+      setMessages([]);
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    setSessionId(activeSession.sessionId);
+    setMessages(activeSession.messages);
+  }, [activeSessionKey, storageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(chatSessions));
+  }, [chatSessions, storageKey]);
+
+  useEffect(() => {
+    if (sessionId) {
+      localStorage.setItem(activeSessionKey, sessionId);
+      return;
+    }
+
+    localStorage.removeItem(activeSessionKey);
+  }, [activeSessionKey, sessionId]);
 
   useEffect(() => {
     if (!viewportRef.current) return;
@@ -260,50 +335,31 @@ export default function StudentAiChatPanel({
     setShowJumpToLatest(true);
   }, [messages, submitting]);
 
-  const refreshSessions = async (preferredSessionId = sessionId) => {
-    try {
-      const { data } = await api.get("/chat/sessions");
-      const nextSessions = Array.isArray(data.sessions) ? data.sessions : [];
-      setSessions(nextSessions);
+  const openSession = (nextSessionId: string) => {
+    const nextSession = chatSessions.find((session) => session.sessionId === nextSessionId);
+    if (!nextSession) return;
 
-      if (!sessionId && preferredSessionId) {
-        setSessionId(preferredSessionId);
-      }
-    } catch {
-      // Keep the current session list if refresh fails.
-    }
-  };
-
-  const openSession = async (nextSessionId: string) => {
-    if (!nextSessionId) return;
-
-    setLoadingConversation(true);
     shouldAutoScrollRef.current = true;
     setShowJumpToLatest(false);
-
-    try {
-      const { data } = await api.get(`/chat/sessions/${encodeURIComponent(nextSessionId)}`);
-      const session = (data.session || {}) as ChatSessionDetail;
-      setSessionId(session.sessionId || nextSessionId);
-      setMessages(Array.isArray(session.messages) ? session.messages.map(mapSessionMessage) : []);
-      setSuggestedPrompts([]);
-      setPendingAttachments([]);
-      setPrompt("");
-      window.requestAnimationFrame(() => scrollToBottom("auto"));
-    } catch (error) {
-      toast.error(readApiErrorMessage(error, "Could not load that chat"));
-    } finally {
-      setLoadingConversation(false);
-    }
+    setSessionId(nextSession.sessionId);
+    setMessages(nextSession.messages);
+    setSuggestedPrompts([]);
+    setPendingAttachments([]);
+    setPrompt("");
+    window.requestAnimationFrame(() => scrollToBottom("auto"));
   };
 
   const sendMessage = async (message: string) => {
     const trimmed = message.trim();
     if (!trimmed && pendingAttachments.length === 0) return;
 
+    if (listening) {
+      stopListening();
+    }
+
     const outboundAttachments = [...pendingAttachments];
     const finalMessage = trimmed || buildFallbackPrompt(outboundAttachments);
-
+    const nextSessionId = sessionId || createMessageId("assistant");
     const localUserMessage: ChatMessage = {
       id: createMessageId("user"),
       role: "user",
@@ -311,13 +367,16 @@ export default function StudentAiChatPanel({
       createdAt: new Date().toISOString(),
       attachments: outboundAttachments,
     };
+    const nextUserMessages = [...messages, localUserMessage];
 
+    setSessionId(nextSessionId);
     setSubmitting(true);
-    setMessages((current) => [...current, localUserMessage]);
+    setMessages(nextUserMessages);
     setPrompt("");
     setPendingAttachments([]);
     shouldAutoScrollRef.current = true;
     setShowJumpToLatest(false);
+    persistConversation(nextSessionId, nextUserMessages);
 
     try {
       const referencedQuestionIndex = extractReferencedQuestionIndex(finalMessage, questions.length);
@@ -326,7 +385,7 @@ export default function StudentAiChatPanel({
         referencedQuestionIndex !== null ? answers[String(referencedQuestionIndex)] ?? answers[referencedQuestionIndex] : undefined;
 
       const { data } = await api.post("/chat", {
-        sessionId: sessionId || undefined,
+        sessionId: nextSessionId,
         message: finalMessage,
         attachments: outboundAttachments.map(({ id, previewUrl, ...attachment }) => attachment),
         context: {
@@ -357,24 +416,21 @@ export default function StudentAiChatPanel({
         },
       });
 
-      const nextSessionId = data.sessionId || sessionId;
-      if (nextSessionId) {
-        setSessionId(nextSessionId);
-      }
+      const assistantMessage: ChatMessage = {
+        id: createMessageId("assistant"),
+        role: "assistant",
+        content: data.reply || "No response generated.",
+        createdAt: new Date().toISOString(),
+      };
+      const nextConversation = [...nextUserMessages, assistantMessage];
 
-      setMessages((current) => [
-        ...current,
-        {
-          id: createMessageId("assistant"),
-          role: "assistant",
-          content: data.reply || "No response generated.",
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      setMessages(nextConversation);
       setSuggestedPrompts(Array.isArray(data.suggestedPrompts) ? data.suggestedPrompts : []);
-      void refreshSessions(nextSessionId);
+      persistConversation(nextSessionId, nextConversation);
     } catch (error) {
       toast.error(readApiErrorMessage(error, "AI chat request failed"));
+      setMessages(messages);
+      persistConversation(nextSessionId, messages);
     } finally {
       setSubmitting(false);
     }
@@ -396,11 +452,10 @@ export default function StudentAiChatPanel({
       return;
     }
 
-    const nextFiles = supportedFiles.slice(0, availableSlots);
-
     try {
-      const prepared = await Promise.all(nextFiles.map((file) => prepareChatAttachment(file)));
-      setPendingAttachments((current) => [...current, ...prepared.filter(Boolean).map((attachment) => attachment as ChatAttachment)]);
+      const prepared = await Promise.all(supportedFiles.slice(0, availableSlots).map((file) => prepareChatAttachment(file)));
+      const nextAttachments = prepared.filter(Boolean) as ChatAttachment[];
+      setPendingAttachments((current) => [...current, ...nextAttachments]);
     } catch {
       toast.error("One or more files could not be prepared.");
     }
@@ -411,6 +466,10 @@ export default function StudentAiChatPanel({
   };
 
   const handleNewChat = () => {
+    if (listening) {
+      stopListening();
+    }
+
     setSessionId("");
     setMessages([]);
     setSuggestedPrompts([]);
@@ -441,7 +500,7 @@ export default function StudentAiChatPanel({
     <motion.section
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: "easeOut" }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
       className="overflow-hidden rounded-3xl border border-[#EAE4DE] p-4 md:p-6"
       style={{ background: "linear-gradient(180deg, #FFFFFF, #FFF9F5)", boxShadow: "0 4px 24px -6px rgba(30,20,12,0.08)" }}
     >
@@ -458,7 +517,7 @@ export default function StudentAiChatPanel({
             <div>
               <h2 className="text-2xl font-display font-semibold text-[#231C17]">VidyaSaathi</h2>
               <p className="mt-1 text-sm leading-6 text-[#7A716A]">
-                Ask personal doubts, upload files, use voice, revisit older conversations, and get math-perfect answers based on your completed test.
+                Smooth math rendering, clean scrolling chat, voice input, file upload, and simple local chat history.
               </p>
             </div>
           </div>
@@ -479,39 +538,30 @@ export default function StudentAiChatPanel({
               "hover:border-[#E8722A]/30 hover:bg-[#FFF0E5] hover:text-[#E8722A] disabled:opacity-50",
             )}
             onClick={() => void sendMessage(suggestion)}
-            disabled={submitting || loadingConversation}
+            disabled={submitting}
           >
             {suggestion}
           </button>
         ))}
       </div>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
+      <div className="mt-6 grid gap-4 xl:grid-cols-[16rem_minmax(0,1fr)]">
         <Sidebar
           sessions={sessions}
           activeSessionId={sessionId}
-          loading={loadingSessions}
           onNewChat={handleNewChat}
-          onSelectSession={(nextSessionId) => void openSession(nextSessionId)}
+          onSelectSession={openSession}
         />
 
         <div className="min-w-0 rounded-3xl border border-[#EAE4DE] bg-white/60 p-3 sm:p-4">
-          <div className="mb-3 flex items-center justify-between gap-3 px-2">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7A716A]/60">Conversation</div>
-              <h3 className="mt-2 text-xl font-display font-semibold text-[#231C17]">
-                {sessionId ? "Continue your chat" : "Start a new chat"}
-              </h3>
-            </div>
-            {loadingConversation ? (
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#EAE4DE] bg-[#FAF5F0] px-3 py-2 text-xs text-[#7A716A]">
-                <Loader2 className="h-4 w-4 animate-spin text-[#E8722A]" />
-                Loading conversation...
-              </div>
-            ) : null}
+          <div className="mb-3 px-2">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7A716A]/60">Conversation</div>
+            <h3 className="mt-2 text-xl font-display font-semibold text-[#231C17]">
+              {sessionId ? "Continue your chat" : "Start a new chat"}
+            </h3>
           </div>
 
-          <div className="flex min-h-[44rem] min-w-0 flex-col gap-3">
+          <div className="flex h-[34rem] min-w-0 flex-col gap-3 overflow-hidden md:h-[38rem]">
             <ChatContainer
               messages={messages}
               suggestedPrompts={activePrompts}
@@ -530,11 +580,15 @@ export default function StudentAiChatPanel({
             <InputBox
               value={prompt}
               attachments={pendingAttachments}
-              disabled={submitting || loadingConversation}
+              disabled={submitting}
               listening={listening}
+              interimTranscript={interimTranscript}
               voiceSupported={voiceSupported}
               onChange={setPrompt}
-              onSend={() => void sendMessage(prompt)}
+              onSend={() => {
+                const message = `${prompt} ${interimTranscript}`.trim();
+                void sendMessage(message);
+              }}
               onAttachFiles={(files) => void handleAttachFiles(files)}
               onRemoveAttachment={handleRemoveAttachment}
               onToggleVoice={handleToggleVoice}

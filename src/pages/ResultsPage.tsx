@@ -75,32 +75,32 @@ const formatTime = (seconds = 0) => {
   return `${mins}m ${secs}s`;
 };
 
-const optionText = (option: any) => (typeof option === 'string' ? option : option?.text || '');
+type QuestionOption = string | { text?: string; imageUrl?: string };
+
+const optionText = (option: QuestionOption) => (typeof option === 'string' ? option : option?.text || '');
 
 export default function ResultsPage() {
   const { testId } = useParams<{ testId: string }>();
   const [showReview, setShowReview] = useState(false);
   const [expandedQ, setExpandedQ] = useState<number | null>(null);
-
   const raw = localStorage.getItem(`result_${testId}`);
-  if (!raw) {
-    return (
-      <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, hsl(30 60% 98%), hsl(24 90% 94%), hsl(35 70% 96%))' }}>
-        <Header />
-        <div className="container py-24 text-center">
-          <h1 className="text-3xl font-display font-semibold text-[#231C17]">No results found</h1>
-          <Link to="/exams" className="mt-4 inline-block text-sm text-[#E8722A] hover:text-[#D4621E]">
-            Back to Exams
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const [result, setResult] = useState<ResultData | null>(() => {
+    if (!raw) return null;
 
-  const [result, setResult] = useState<ResultData>(() => JSON.parse(raw));
+    try {
+      return JSON.parse(raw) as ResultData;
+    } catch {
+      return null;
+    }
+  });
   const [reviewState, setReviewState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
 
   useEffect(() => {
+    if (!testId || !result) {
+      setReviewState('unavailable');
+      return;
+    }
+
     let cancelled = false;
 
     const hydrateLatestQuestionData = async () => {
@@ -183,7 +183,21 @@ export default function ResultsPage() {
     return () => {
       cancelled = true;
     };
-  }, [result.attemptId, testId]);
+  }, [result, testId]);
+
+  if (!result) {
+    return (
+      <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, hsl(30 60% 98%), hsl(24 90% 94%), hsl(35 70% 96%))' }}>
+        <Header />
+        <div className="container py-24 text-center">
+          <h1 className="text-3xl font-display font-semibold text-[#231C17]">No results found</h1>
+          <Link to="/exams" className="mt-4 inline-block text-sm text-[#E8722A] hover:text-[#D4621E]">
+            Back to Exams
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const { questions, answers } = result;
   const subjectRules = result.subjects || [];
@@ -426,7 +440,7 @@ export default function ResultsPage() {
                               </div>
                               <div>
                                 <div className={`mb-3 inline-flex rounded-full border px-3 py-1 text-xs font-medium ${badgeClass}`}>{badge}</div>
-                                <FormattedContent html={question.question} className="text-sm leading-7 text-[#231C17]/82" />
+                                <FormattedContent html={question.question} className="text-sm leading-7 text-[#231C17]" />
                                 {question.questionImage ? <img src={question.questionImage} alt="Question" className="mt-3 max-h-48 rounded-2xl border border-[#EAE4DE]" /> : null}
                               </div>
                             </div>
@@ -437,11 +451,11 @@ export default function ResultsPage() {
                         {expandedQ === index ? (
                           <div className="mt-5 space-y-4 md:ml-14">
                             {question.questionType === 'written' ? (
-                              <div className="rounded-2xl border border-[#EAE4DE] bg-white p-4 text-sm leading-7 text-[#231C17]/74">
+                              <div className="rounded-2xl border border-[#EAE4DE] bg-white p-4 text-sm leading-7 text-[#231C17]">
                                 <div><strong className="text-[#231C17]">Your answer:</strong> {typeof userAnswer === 'string' && userAnswer.trim() ? userAnswer : 'Not answered'}</div>
                                 <div className="mt-3">
                                   <strong className="text-[#231C17]">Correct answer:</strong>
-                                  {question.writtenAnswer?.trim() ? <FormattedContent html={question.writtenAnswer} className="mt-2 text-sm text-[#231C17]/82" /> : <span className="ml-2 text-[#7A716A]">-</span>}
+                                  {question.writtenAnswer?.trim() ? <FormattedContent html={question.writtenAnswer} className="mt-2 text-sm text-[#231C17]" /> : <span className="ml-2 text-[#7A716A]">-</span>}
                                 </div>
                               </div>
                             ) : (
@@ -471,9 +485,9 @@ export default function ResultsPage() {
                               })()}
                             </div>
 
-                            <div className="rounded-2xl border border-[#EAE4DE] bg-[#FFF0E5]/50 p-4">
+                            <div className="rounded-2xl border border-[#EAE4DE] bg-[#FFF7F0] p-4">
                               <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#E8722A]">Official Explanation</div>
-                              <FormattedContent html={question.explanation} className="text-sm leading-7 text-[#231C17]/78" />
+                              <FormattedContent html={question.explanation} className="text-sm leading-7 text-[#231C17]" />
                               {question.explanationImage ? <img src={question.explanationImage} alt="Solution explanation" className="mt-4 max-h-80 w-auto rounded-2xl border border-[#EAE4DE] bg-white" /> : null}
                             </div>
                           </div>

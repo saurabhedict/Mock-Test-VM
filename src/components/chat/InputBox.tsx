@@ -10,6 +10,7 @@ interface InputBoxProps {
   attachments: ChatAttachment[];
   disabled?: boolean;
   listening?: boolean;
+  interimTranscript?: string;
   voiceSupported?: boolean;
   onChange: (value: string) => void;
   onSend: () => void;
@@ -23,6 +24,7 @@ export default function InputBox({
   attachments,
   disabled = false,
   listening = false,
+  interimTranscript = "",
   voiceSupported = false,
   onChange,
   onSend,
@@ -37,12 +39,12 @@ export default function InputBox({
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    const frame = window.requestAnimationFrame(() => {
+    const timeoutId = window.setTimeout(() => {
       textarea.style.height = "0px";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`;
-    });
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    }, 30);
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => window.clearTimeout(timeoutId);
   }, [value]);
 
   const canSend = Boolean(value.trim() || attachments.length > 0) && !disabled;
@@ -113,12 +115,16 @@ export default function InputBox({
             }}
             placeholder="Message VidyaSaathi..."
             disabled={disabled}
-            className="min-h-[56px] max-h-[220px] w-full resize-none rounded-[1.5rem] border-[#EAE4DE] bg-[#FAF5F0] px-4 py-3 text-sm leading-7 text-[#231C17] placeholder:text-[#7A716A]/60 focus-visible:ring-[#E8722A]/25"
+            className="min-h-[56px] max-h-[120px] w-full resize-none rounded-[1.5rem] border-[#EAE4DE] bg-[#FAF5F0] px-4 py-3 text-sm leading-7 text-[#231C17] placeholder:text-[#7A716A]/60 focus-visible:ring-[#E8722A]/25"
             rows={1}
           />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-[#7A716A]/70">
             <span>Enter to send, Shift+Enter for a new line</span>
-            <span>{listening ? "Listening..." : "PDF, images, and text files supported"}</span>
+            <span>
+              {listening
+                ? `Listening${interimTranscript ? `: ${interimTranscript}` : "..."}`
+                : "PDF, images, and text files supported"}
+            </span>
           </div>
         </div>
 
