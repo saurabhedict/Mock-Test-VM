@@ -2,12 +2,35 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 const IMAGE_FETCH_TIMEOUT_MS = 8000;
 
+const parseDataUrlAsInlineData = (url) => {
+  if (!url || typeof url !== "string" || !url.startsWith("data:image/")) {
+    return null;
+  }
+
+  const match = url.match(/^data:(image\/[A-Za-z0-9.+-]+);base64,(.+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    inlineData: {
+      mimeType: match[1],
+      data: match[2],
+    },
+  };
+};
+
 /**
  * Fetch an image URL, returning a Gemini-compatible inlineData part.
  * Returns null on failure so callers can safely skip broken images.
  */
 const fetchImageAsInlineData = async (url) => {
   if (!url || typeof url !== "string") return null;
+
+  const inlineData = parseDataUrlAsInlineData(url);
+  if (inlineData) {
+    return inlineData;
+  }
 
   try {
     const controller = new AbortController();
@@ -89,6 +112,12 @@ const normalizeContents = (input = []) => {
           const t = (item?.text || "").trim();
           if (t) parts.push({ text: t });
         } else if (item?.type === "image_url" && item?.url) {
+          const inlineData = parseDataUrlAsInlineData(item.url);
+          if (inlineData) {
+            parts.push(inlineData);
+            continue;
+          }
+
           // Track this image so it can be fetched asynchronously later
           imageUrls.push({ messageIndex: contents.length, partIndex: parts.length, url: item.url });
           parts.push({ text: "[image attached]" }); // placeholder, will be replaced

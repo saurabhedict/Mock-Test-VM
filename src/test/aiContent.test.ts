@@ -34,4 +34,12 @@ describe("normalizeAiResponse", () => {
     expect(output).toContain("$$\nx^2 + 2x + 1 = 0\n$$");
     expect(output).toContain("Focus on quadratic identities before the next test.");
   });
+
+  it("fixes double-escaped latex commands and delimiters from structured AI responses", () => {
+    const input = "Solve \\\\(x^2 + 1\\\\) and use \\\\frac{1}{2} in the next step.";
+    const output = normalizeAiResponse(input);
+
+    expect(output).toContain("$x^2 + 1$");
+    expect(output).toContain("\\frac{1}{2}");
+  });
 });

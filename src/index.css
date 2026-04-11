@@ -95,6 +95,15 @@
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    width: 100%;
+    overflow-x: hidden;
   }
 
   body {
@@ -210,6 +219,18 @@
     @apply my-3 leading-7;
   }
 
+  .math-renderer h1 {
+    @apply mt-6 text-2xl font-display font-semibold text-[#231C17];
+  }
+
+  .math-renderer h2 {
+    @apply mt-6 text-xl font-display font-semibold text-[#231C17];
+  }
+
+  .math-renderer h3 {
+    @apply mt-5 text-lg font-display font-semibold text-[#231C17];
+  }
+
   .math-renderer ul {
     @apply my-3 list-disc pl-5;
   }
@@ -242,6 +263,10 @@
 
   .math-renderer pre code {
     @apply bg-transparent p-0 text-inherit;
+  }
+
+  .chat-code-block code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   }
 
   .math-renderer a {

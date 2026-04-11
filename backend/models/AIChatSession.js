@@ -1,5 +1,30 @@
 const mongoose = require("mongoose");
 
+const chatAttachmentSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    kind: {
+      type: String,
+      enum: ["image", "pdf", "text"],
+      required: true,
+    },
+    mimeType: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    size: {
+      type: Number,
+      default: 0,
+    },
+  },
+  { _id: false }
+);
+
 const chatMessageSchema = new mongoose.Schema(
   {
     role: {
@@ -11,6 +36,15 @@ const chatMessageSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    contextText: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    attachments: {
+      type: [chatAttachmentSchema],
+      default: [],
     },
     createdAt: {
       type: Date,
@@ -33,6 +67,11 @@ const aiChatSessionSchema = new mongoose.Schema(
       trim: true,
     },
     title: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    contextLabel: {
       type: String,
       default: "",
       trim: true,

@@ -47,6 +47,40 @@ const KNOWN_MATH_WORDS = new Set([
   "tan",
   "theta",
 ]);
+const COMMON_LATEX_COMMANDS = new Set([
+  "alpha",
+  "beta",
+  "cdot",
+  "cos",
+  "cot",
+  "csc",
+  "delta",
+  "frac",
+  "gamma",
+  "geq",
+  "infty",
+  "int",
+  "lambda",
+  "leq",
+  "left",
+  "lim",
+  "log",
+  "ln",
+  "mathbb",
+  "mathbf",
+  "mathrm",
+  "neq",
+  "phi",
+  "pi",
+  "pm",
+  "right",
+  "sin",
+  "sqrt",
+  "sum",
+  "tan",
+  "theta",
+  "times",
+]);
 
 type CapturedBlock = {
   placeholder: string;
@@ -129,6 +163,11 @@ const normalizeMathDelimiters = (value: string) =>
       return trimmed ? `$${trimmed}$` : "";
     });
 
+const fixEscapedLatex = (value: string) =>
+  value
+    .replace(/\\\\([()[\]])/g, "\\$1")
+    .replace(/\\\\([A-Za-z]+)/g, (match, command) => (COMMON_LATEX_COMMANDS.has(command) ? `\\${command}` : match));
+
 const looksLikeStandaloneMath = (line: string) => {
   const trimmed = line.trim();
   if (!trimmed) return false;
@@ -188,6 +227,6 @@ export const normalizeAiResponse = (value = "") => {
 
   const source = normalizeBasicHtml(value).replace(/\r\n?/g, "\n").replace(/\u200b/g, "");
   const { blocks, masked } = captureCodeFences(source);
-  const normalized = wrapStandaloneMathLines(normalizeMathDelimiters(wrapEnvironmentBlocks(masked)));
+  const normalized = wrapStandaloneMathLines(normalizeMathDelimiters(fixEscapedLatex(wrapEnvironmentBlocks(masked))));
   return collapseBlankLines(restoreCodeFences(normalized, blocks));
 };

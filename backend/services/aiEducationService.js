@@ -68,6 +68,8 @@ const MARKDOWN_MATH_FORMATTING_GUIDANCE =
   "Format all string fields as clean Markdown, never raw HTML. Wrap inline math in $...$ and standalone equations in $$...$$. Use fenced code blocks for code and escape LaTeX backslashes correctly.";
 
 const withMarkdownMathGuidance = (instruction) => `${instruction} ${MARKDOWN_MATH_FORMATTING_GUIDANCE}`;
+const CHAT_ATTACHMENT_COUNT_LIMIT = 4;
+const CHAT_ATTACHMENT_TEXT_LIMIT = 6000;
 
 const chunkArray = (items = [], chunkSize = 6) => {
   const chunks = [];
@@ -299,6 +301,68 @@ const formatQuestionContextForPrompt = (questionContext) => {
   return lines.join("\n");
 };
 
+const sanitizeChatAttachment = (attachment = {}, index = 0) => {
+  const kind = ["image", "pdf", "text"].includes(String(attachment.kind || "").toLowerCase())
+    ? String(attachment.kind).toLowerCase()
+    : "text";
+  const extractedText = truncateText(stripHtml(attachment.extractedText || ""), CHAT_ATTACHMENT_TEXT_LIMIT);
+  const imageDataUrl =
+    kind === "image" && typeof attachment.imageDataUrl === "string" && attachment.imageDataUrl.startsWith("data:image/")
+      ? attachment.imageDataUrl
+      : "";
+
+  return {
+    name: truncateText(stripHtml(attachment.name || `Attachment ${index + 1}`), 80) || `Attachment ${index + 1}`,
+    kind,
+    mimeType: truncateText(stripHtml(attachment.mimeType || ""), 80),
+    size: Number(attachment.size || 0),
+    extractedText,
+    imageDataUrl,
+  };
+};
+
+const buildAttachmentContextBlock = (context = {}) => {
+  const attachments = Array.isArray(context?.attachments) ? context.attachments : [];
+  if (!attachments.length) {
+    return [];
+  }
+
+  return attachments
+    .slice(0, CHAT_ATTACHMENT_COUNT_LIMIT)
+    .map((attachment, index) => sanitizeChatAttachment(attachment, index));
+};
+
+const formatAttachmentContextForPrompt = (attachments = []) => {
+  if (!attachments.length) {
+    return "Attachments: none provided.";
+  }
+
+  return [
+    "Attachments:",
+    ...attachments.map((attachment, index) => {
+      const descriptor = [
+        `${index + 1}. ${attachment.name}`,
+        attachment.kind.toUpperCase(),
+        attachment.mimeType || "unknown type",
+      ].join(" • ");
+
+      if (!attachment.extractedText) {
+        return `${descriptor}\nExtracted text: not available.`;
+      }
+
+      return `${descriptor}\nExtracted text:\n${attachment.extractedText}`;
+    }),
+  ].join("\n\n");
+};
+
+const serializeAttachmentMetadata = (attachments = []) =>
+  attachments.map((attachment) => ({
+    name: attachment.name,
+    kind: attachment.kind,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+  }));
+
 const buildExamContextBlock = (context = {}) => {
   const hasSummary = context?.summary && typeof context.summary === "object";
   const hasQuestions = Array.isArray(context?.questions) && context.questions.length > 0;
@@ -374,6 +438,14 @@ const formatExamContextForPrompt = (examContext) => {
   ].join("\n");
 };
 
+const serializeChatMessage = (message = {}, index = 0) => ({
+  id: `${message.role || "message"}-${message.createdAt || index}`,
+  role: message.role === "assistant" ? "assistant" : "user",
+  content: message.content || "",
+  createdAt: message.createdAt || null,
+  attachments: serializeAttachmentMetadata(Array.isArray(message.attachments) ? message.attachments : []),
+});
+
 const chatWithAssistant = async ({ userId, sessionId, message, context = {}, memory = true }) => {
   if (!message?.trim()) {
     const error = new Error("message is required");
@@ -384,6 +456,8 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
   const resolvedSessionId = sessionId || crypto.randomUUID();
   const questionContext = buildQuestionContextBlock(context);
   const examContext = buildExamContextBlock(context);
+  const attachmentContext = buildAttachmentContextBlock(context);
+  const attachmentContextText = formatAttachmentContextForPrompt(attachmentContext);
   let chatSession = null;
 
   if (memory) {
@@ -392,7 +466,15 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
 
   const recentMessages = (chatSession?.messages || []).slice(-8).map((item) => ({
     role: item.role,
-    content: [{ type: "input_text", text: item.content }],
+    content: [
+      {
+        type: "input_text",
+        text:
+          item.role === "user" && item.contextText
+            ? [item.content, item.contextText].filter(Boolean).join("\n\n")
+            : item.content,
+      },
+    ],
   }));
 
   const response = await createStructuredResponse({
@@ -416,6 +498,8 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
               formatExamContextForPrompt(examContext),
               "",
               formatQuestionContextForPrompt(questionContext),
+              "",
+              attachmentContextText,
             ].join("\n"),
           },
           // Attach question image if present so Gemini can see it
@@ -426,6 +510,10 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
           ...(questionContext?.explanationImage
             ? [{ type: "image_url", url: questionContext.explanationImage }]
             : []),
+          // Attach user-uploaded images so the model can inspect them directly
+          ...attachmentContext
+            .filter((attachment) => attachment.kind === "image" && attachment.imageDataUrl)
+            .map((attachment) => ({ type: "image_url", url: attachment.imageDataUrl })),
         ],
       },
     ],
@@ -441,11 +529,19 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
       });
 
     nextSession.messages.push(
-      { role: "user", content: message.trim() },
+      {
+        role: "user",
+        content: message.trim(),
+        contextText: attachmentContext.length ? attachmentContextText : "",
+        attachments: serializeAttachmentMetadata(attachmentContext),
+      },
       { role: "assistant", content: response.reply || "" }
     );
     if (!nextSession.title) {
       nextSession.title = truncateText(message.trim(), 60);
+    }
+    if (!nextSession.contextLabel && examContext?.testTitle) {
+      nextSession.contextLabel = truncateText(examContext.testTitle, 80);
     }
     await nextSession.save();
   }
@@ -454,6 +550,46 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
     sessionId: resolvedSessionId,
     reply: response.reply || "",
     suggestedPrompts: response.suggestedPrompts || [],
+  };
+};
+
+const listChatSessions = async ({ userId }) => {
+  const sessions = await AIChatSession.find({ userId })
+    .sort({ updatedAt: -1, createdAt: -1 })
+    .limit(30)
+    .lean();
+
+  return sessions.map((session) => {
+    const messages = Array.isArray(session.messages) ? session.messages : [];
+    const lastMessage = messages[messages.length - 1];
+
+    return {
+      sessionId: session.sessionId,
+      title: session.title || "New chat",
+      contextLabel: session.contextLabel || "",
+      createdAt: session.createdAt || null,
+      updatedAt: session.updatedAt || null,
+      messageCount: messages.length,
+      lastMessagePreview: truncateText(lastMessage?.content || "", 100),
+    };
+  });
+};
+
+const getChatSession = async ({ userId, sessionId }) => {
+  const session = await AIChatSession.findOne({ userId, sessionId }).lean();
+  if (!session) {
+    const error = new Error("Chat session not found");
+    error.status = 404;
+    throw error;
+  }
+
+  return {
+    sessionId: session.sessionId,
+    title: session.title || "New chat",
+    contextLabel: session.contextLabel || "",
+    createdAt: session.createdAt || null,
+    updatedAt: session.updatedAt || null,
+    messages: (session.messages || []).map((message, index) => serializeChatMessage(message, index)),
   };
 };
 
@@ -649,6 +785,8 @@ const predictStudentPerformance = async ({ studentId, analytics: providedAnalyti
 module.exports = {
   analyzeTest,
   chatWithAssistant,
+  listChatSessions,
+  getChatSession,
   parseQuestionsFromExtractedText,
   getStudentAnalytics,
   getRecommendations,

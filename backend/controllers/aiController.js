@@ -2,6 +2,8 @@ const multer = require("multer");
 const {
   analyzeTest,
   chatWithAssistant,
+  listChatSessions,
+  getChatSession,
   parseQuestionsFromExtractedText,
   getStudentAnalytics,
   getRecommendations,
@@ -61,12 +63,42 @@ exports.chat = async (req, res) => {
       userId: req.user._id,
       sessionId: req.body.sessionId,
       message: req.body.message,
-      context: req.body.context || {},
+      context: {
+        ...(req.body.context || {}),
+        attachments: Array.isArray(req.body.attachments) ? req.body.attachments : [],
+      },
       memory: req.body.memory !== false,
     });
     res.json({
       success: true,
       ...data,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+exports.listChatSessions = async (req, res) => {
+  try {
+    const sessions = await listChatSessions({ userId: req.user._id });
+    res.json({
+      success: true,
+      sessions,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+exports.getChatSession = async (req, res) => {
+  try {
+    const session = await getChatSession({
+      userId: req.user._id,
+      sessionId: req.params.sessionId,
+    });
+    res.json({
+      success: true,
+      session,
     });
   } catch (error) {
     handleError(res, error);
