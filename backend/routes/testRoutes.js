@@ -223,6 +223,32 @@ router.post("/session/heartbeat", protect, async (req, res) => {
   }
 });
 
+router.post("/session/abandon", protect, async (req, res) => {
+  try {
+    setPrivateNoStoreHeaders(res);
+    const { attemptId } = req.body;
+
+    if (!attemptId) {
+      return res.status(400).json({ success: false, message: "attemptId is required" });
+    }
+
+    const deleteResult = await TestAttempt.deleteOne({
+      _id: attemptId,
+      userId: req.user._id,
+      status: "IN_PROGRESS"
+    });
+
+    if (deleteResult.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: "Attempt not found or cannot be abandoned" });
+    }
+
+    res.json({ success: true, attemptId });
+  } catch (error) {
+    console.error("Abandon session error:", error.message);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+});
+
 router.get("/exam/:examId", getTestsByExam);
 router.get("/:id/review", protect, getCompletedTestReview);
 router.get("/start", startTest);

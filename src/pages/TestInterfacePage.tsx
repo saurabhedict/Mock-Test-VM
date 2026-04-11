@@ -272,6 +272,13 @@ export default function TestInterfacePage() {
   const handleExitTest = useCallback(async () => {
     isExitingRef.current = true;
     localStorage.removeItem(`test_${testId}`);
+    
+    // Completely abandon the test session in the backend so it drops from 'Live' status
+    const currentAttemptId = latestStateRef.current?.attemptId;
+    if (currentAttemptId) {
+      api.post('/tests/session/abandon', { attemptId: currentAttemptId }).catch(() => {});
+    }
+
     if (document.fullscreenElement) await document.exitFullscreen?.();
     navigate('/exams');
   }, [navigate, testId]);
@@ -836,10 +843,10 @@ export default function TestInterfacePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-6">
             <h3 className="text-lg font-bold">Exit Test?</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Your current progress is saved in this browser. You can come back and continue later.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Exiting the test will permanently cancel this attempt, and no progress will be saved. A fresh test will start if you try again later.</p>
             <div className="mt-6 flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setShowExitDialog(false)}>Stay in Test</Button>
-              <Button variant="destructive" className="flex-1" onClick={() => void handleExitTest()}>Exit Test</Button>
+              <Button variant="destructive" className="flex-1" onClick={() => void handleExitTest()}>Exit & Cancel</Button>
             </div>
           </div>
         </div>
