@@ -193,6 +193,85 @@
     background-size: 26px 26px, 34px 34px;
     opacity: 0.22;
   }
+
+  .math-renderer {
+    word-break: break-word;
+  }
+
+  .math-renderer > :first-child {
+    margin-top: 0;
+  }
+
+  .math-renderer > :last-child {
+    margin-bottom: 0;
+  }
+
+  .math-renderer p {
+    @apply my-3 leading-7;
+  }
+
+  .math-renderer ul {
+    @apply my-3 list-disc pl-5;
+  }
+
+  .math-renderer ol {
+    @apply my-3 list-decimal pl-5;
+  }
+
+  .math-renderer li {
+    @apply my-1;
+  }
+
+  .math-renderer blockquote {
+    @apply my-4 rounded-r-2xl border-l-2 border-primary/30 bg-accent/40 px-4 py-3 italic;
+  }
+
+  .math-renderer pre {
+    @apply my-4 overflow-x-auto rounded-2xl bg-[#1A140F] px-4 py-3 text-xs leading-6 text-[#FFF7F0];
+  }
+
+  .dark .math-renderer pre {
+    background-color: #111827;
+    color: #f8fafc;
+  }
+
+  .math-renderer code {
+    @apply rounded-md bg-muted px-1.5 py-0.5 text-[0.92em];
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+
+  .math-renderer pre code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+
+  .math-renderer a {
+    @apply font-medium text-primary underline decoration-primary/40 underline-offset-4;
+  }
+
+  .math-renderer hr {
+    @apply my-4 border-border;
+  }
+
+  .math-renderer table {
+    @apply my-4 block w-full overflow-x-auto rounded-2xl border border-border text-sm;
+  }
+
+  .math-renderer thead {
+    @apply bg-muted/70;
+  }
+
+  .math-renderer th,
+  .math-renderer td {
+    @apply border border-border px-3 py-2 text-left align-top;
+  }
+
+  .math-renderer .katex {
+    max-width: 100%;
+  }
+
+  .math-renderer .katex-display {
+    @apply my-4 overflow-x-auto overflow-y-hidden pb-1;
+  }
 }
 
 

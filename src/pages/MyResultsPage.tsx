@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
+import MathRenderer from "@/components/MathRenderer";
 import type { Prediction, Recommendations, StudentAnalytics } from "@/types/ai";
 
 interface ApiAttempt {
@@ -166,12 +167,15 @@ export default function MyResultsPage() {
                     <Brain className="h-5 w-5" />
                     <span className="text-xs font-semibold uppercase tracking-[0.2em]">AI Summary</span>
                   </div>
-                  <p className="mt-4 text-sm leading-7 text-foreground">{analytics.aiSummary || "Your analytics summary will appear here after more attempts."}</p>
+                  <MathRenderer
+                    content={analytics.aiSummary || "Your analytics summary will appear here after more attempts."}
+                    className="mt-4 text-sm leading-7 text-foreground"
+                  />
                   {analytics.aiStudyPlan.length > 0 && (
                     <div className="mt-5 space-y-2">
                       {analytics.aiStudyPlan.map((item) => (
-                        <div key={item} className="rounded-xl bg-muted/50 px-4 py-3 text-sm text-foreground">
-                          {item}
+                        <div key={item} className="rounded-xl bg-muted/50 px-4 py-3">
+                          <MathRenderer content={item} className="text-sm leading-7 text-foreground" />
                         </div>
                       ))}
                     </div>
@@ -194,7 +198,7 @@ export default function MyResultsPage() {
                         <div className="text-2xl font-bold text-foreground">{prediction.expectedAccuracy}%</div>
                       </div>
                     </div>
-                    <p className="mt-4 text-sm leading-7 text-foreground">{prediction.insight}</p>
+                    <MathRenderer content={prediction.insight} className="mt-4 text-sm leading-7 text-foreground" />
                   </motion.div>
                 )}
               </div>
@@ -247,7 +251,7 @@ export default function MyResultsPage() {
                     <Sparkles className="h-5 w-5" />
                     <span className="text-xs font-semibold uppercase tracking-[0.2em]">Recommendations</span>
                   </div>
-                  <p className="mt-4 text-sm leading-7 text-foreground">{recommendations.summary}</p>
+                  <MathRenderer content={recommendations.summary} className="mt-4 text-sm leading-7 text-foreground" />
                   <div className="mt-5 flex flex-wrap gap-2">
                     {recommendations.topicsToRevise.map((topic) => (
                       <span key={topic} className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">

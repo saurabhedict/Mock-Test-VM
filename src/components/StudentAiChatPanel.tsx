@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { readApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import FormattedContent from "@/components/FormattedContent";
+import MathRenderer from "@/components/MathRenderer";
 
 type ChatQuestion = {
   question: string;
@@ -295,7 +295,7 @@ export default function StudentAiChatPanel({
                   {message.role === "assistant" ? "VidyaSaathi" : "You"}
                 </div>
                 {message.role === "assistant" ? (
-                  <FormattedContent html={message.content} className="text-sm text-current whitespace-pre-wrap" />
+                  <MathRenderer content={message.content} className="text-sm text-current" />
                 ) : (
                   <div className="whitespace-pre-wrap">{message.content}</div>
                 )}

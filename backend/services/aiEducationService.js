@@ -64,6 +64,11 @@ const DEFAULT_MODELS = {
     "gemini-2.5-flash-lite",
 };
 
+const MARKDOWN_MATH_FORMATTING_GUIDANCE =
+  "Format all string fields as clean Markdown, never raw HTML. Wrap inline math in $...$ and standalone equations in $$...$$. Use fenced code blocks for code and escape LaTeX backslashes correctly.";
+
+const withMarkdownMathGuidance = (instruction) => `${instruction} ${MARKDOWN_MATH_FORMATTING_GUIDANCE}`;
+
 const chunkArray = (items = [], chunkSize = 6) => {
   const chunks = [];
   for (let index = 0; index < items.length; index += chunkSize) {
@@ -173,8 +178,9 @@ const generateQuestionInsights = async (questions = [], answers = {}) => {
       schemaName: "test_analysis_chunk",
       schema: analyzeTestSchema,
       maxOutputTokens: 2400,
-      instructions:
+      instructions: withMarkdownMathGuidance(
         "You are an exam coach. Return concise JSON only. Create student-friendly step-by-step solutions. Keep each step very short, practical, and faithful to the question. Limit each question to 2 to 4 solution steps and keep wrong-option reasons to one sentence each. If a question has limited context, say what assumption was used.",
+      ),
       input: [
         {
           role: "user",
@@ -394,8 +400,9 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
     schemaName: "student_chat_response",
     schema: chatSchema,
     maxOutputTokens: 850,
-    instructions:
+    instructions: withMarkdownMathGuidance(
       "You are a patient study assistant for competitive exams. Explain answers simply, correct misconceptions directly, and prefer short paragraphs or bullets. Use the exam context for personal guidance and use the question context when the student asks about a specific question. If the student mentions a question number, answer from that question's data first. If a question has an attached image, analyze the image to understand the full question before answering. Do not mention that you are reading JSON.",
+    ),
     input: [
       ...recentMessages,
       {
@@ -486,8 +493,9 @@ const buildAnalyticsSummary = async (analytics) =>
     schemaName: "analytics_summary",
     schema: studyPlanSchema,
     maxOutputTokens: 500,
-    instructions:
+    instructions: withMarkdownMathGuidance(
       "You are summarizing a student's exam analytics. Keep the summary short, direct, and student-friendly. The studyPlan array should contain 3 to 5 concrete next actions.",
+    ),
     input: [
       {
         role: "user",
@@ -531,8 +539,9 @@ const getRecommendations = async ({ studentId, analytics: providedAnalytics = nu
     schemaName: "recommendations_plan",
     schema: studyPlanSchema,
     maxOutputTokens: 500,
-    instructions:
+    instructions: withMarkdownMathGuidance(
       "Generate a short personalized study summary and a compact study plan. Focus on revision topics, practice count, and the right difficulty progression.",
+    ),
     input: [
       {
         role: "user",
@@ -572,8 +581,9 @@ const generateQuestions = async ({ topic, difficulty = "medium", numberOfQuestio
     schemaName: "generated_questions",
     schema: generatedQuestionsSchema,
     maxOutputTokens: 2600,
-    instructions:
+    instructions: withMarkdownMathGuidance(
       "Generate exam-style multiple-choice questions with exactly four options labeled A to D. Keep one correct answer only. Difficulty must match the request. Explanations should be concise and useful for review.",
+    ),
     input: [
       {
         role: "user",
@@ -607,8 +617,9 @@ const predictStudentPerformance = async ({ studentId, analytics: providedAnalyti
     schemaName: "prediction_narrative",
     schema: predictionNarrativeSchema,
     maxOutputTokens: 220,
-    instructions:
+    instructions: withMarkdownMathGuidance(
       "Write one short prediction insight for a student. Mention likely next-test performance and the biggest improvement lever.",
+    ),
     input: [
       {
         role: "user",
