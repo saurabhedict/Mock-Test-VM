@@ -503,14 +503,24 @@ export default function TestInterfacePage() {
       }
     }
   }, [state?.currentQuestion, questions]);
-
   useEffect(() => {
     if (!hasStartedSession || !state?.attemptId || hasSubmittedRef.current) return;
     const interval = window.setInterval(() => {
-      api.post('/tests/session/heartbeat', { attemptId: state.attemptId }).catch(() => {});
-    }, 75000);
+      api.post('/tests/session/heartbeat', { attemptId: state.attemptId }).catch((error: any) => {
+        if (error.response?.status === 404) {
+          toast.error('Your test was terminated by admin.');
+          isExitingRef.current = true;
+          localStorage.removeItem(`test_${testId}`);
+          hasSubmittedRef.current = true;
+          if (document.fullscreenElement) {
+            document.exitFullscreen?.().catch(() => {});
+          }
+          navigate('/exams');
+        }
+      });
+    }, 15000); // Poll every 15 seconds so termination responds quickly
     return () => window.clearInterval(interval);
-  }, [hasStartedSession, state?.attemptId]);
+  }, [hasStartedSession, state?.attemptId, testId, navigate]);
 
   useEffect(() => {
     if (loading || !state || hasSubmittedRef.current || !hasStartedSession) return;
