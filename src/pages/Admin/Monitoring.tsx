@@ -61,6 +61,7 @@ export default function Monitoring() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [terminating, setTerminating] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const fetchAttempts = useCallback(async (showLoader = false) => {
@@ -133,6 +134,20 @@ export default function Monitoring() {
     }
   };
 
+  const handleTerminateLive = async (attemptId: string) => {
+    if (!window.confirm("Are you sure you want to terminate and clear this live test?")) return;
+    setTerminating(attemptId);
+    try {
+      await api.delete(`/admin/attempts/${attemptId}/live`);
+      setLiveAttempts((current) => current.filter((attempt) => attempt._id !== attemptId));
+      toast.success("Live test terminated and cleared");
+    } catch {
+      toast.error("Failed to terminate live test");
+    } finally {
+      setTerminating(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -190,6 +205,7 @@ export default function Monitoring() {
                 <TableHead>Test</TableHead>
                 <TableHead>Started</TableHead>
                 <TableHead>Last Activity</TableHead>
+                <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -210,11 +226,22 @@ export default function Monitoring() {
                         {formatDateTime(attempt.lastActivityAt || attempt.startedAt)}
                       </span>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleTerminateLive(attempt._id)}
+                        disabled={terminating === attempt._id}
+                        title="Terminate and Clear Live Test"
+                      >
+                        {terminating === attempt._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
                     No ongoing tests match your search.
                   </TableCell>
                 </TableRow>

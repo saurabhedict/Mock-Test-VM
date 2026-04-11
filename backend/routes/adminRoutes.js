@@ -48,6 +48,7 @@ router.put('/exams/:id', updateExam);
 router.delete('/exams/:id', deleteExam);
 router.get('/attempts', getTestAttempts);
 router.delete('/attempts', deleteAttemptHistory);
+router.delete('/attempts/:id/live', require('../controllers/adminController').terminateLiveAttempt);
 router.put('/tests/:id/publish', require('../controllers/adminController').updateTestPublished);
 router.get('/tests/:id/questions', require('../controllers/adminController').getTestQuestions);
 router.post('/tests/:id/questions/batch', require('../controllers/adminController').saveBatchQuestions);

@@ -540,6 +540,25 @@ exports.deleteAttemptHistory = async (req, res) => {
   }
 };
 
+exports.terminateLiveAttempt = async (req, res) => {
+  try {
+    const attemptId = req.params.id;
+    const result = await TestAttempt.findOneAndDelete({
+      _id: attemptId,
+      status: "IN_PROGRESS",
+    });
+
+    if (!result) {
+      return res.status(404).json({ success: false, message: "Live attempt not found" });
+    }
+
+    res.json({ success: true, message: "Live test terminated and cleared" });
+  } catch (error) {
+    console.error("TerminateLiveAttempt error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // @desc    Get questions for a specific test
 // @route   GET /api/admin/tests/:id/questions
 // @access  Private/Admin
