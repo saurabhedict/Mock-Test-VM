@@ -77,28 +77,23 @@ export default function Sidebar({
                 type="button"
                 onClick={() => onSelectSession(session.sessionId)}
                 className={cn(
-                  "min-w-[16rem] rounded-2xl border px-4 py-3 text-left transition-all lg:min-w-0",
+                  "flex w-full min-w-[16rem] items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-all lg:min-w-0",
                   isActive
                     ? "border-[#E8722A]/30 bg-[#FFF0E5]"
                     : "border-[#EAE4DE] bg-[#FAF5F0] hover:border-[#E8722A]/20 hover:bg-white",
                 )}
               >
-                <div className="line-clamp-2 text-sm font-semibold text-[#231C17]">{session.title || "Untitled chat"}</div>
-                {session.contextLabel ? (
-                  <div className="mt-1 line-clamp-1 text-xs text-[#7A716A]">{session.contextLabel}</div>
-                ) : null}
-                <div className="mt-3 line-clamp-2 text-xs leading-5 text-[#7A716A]">
-                  {session.lastMessagePreview || "Open this chat to continue the conversation."}
+                <div className="min-w-0 flex-1 pr-2 text-sm font-medium text-[#231C17] block truncate">
+                  {session.title || "Untitled chat"}
                 </div>
-                <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.22em] text-[#7A716A]/55">
-                  <span>{Math.max(0, session.messageCount)} msgs</span>
-                  <span>{formatUpdatedAt(session.updatedAt)}</span>
+                <div className="shrink-0 text-[10px] uppercase text-[#7A716A]/55">
+                  {formatUpdatedAt(session.updatedAt)}
                 </div>
               </button>
             );
           })
         ) : (
-          <div className="rounded-2xl border border-dashed border-[#EAE4DE] bg-[#FAF5F0] p-4 text-sm leading-7 text-[#7A716A]">
+          <div className="rounded-xl border border-dashed border-[#EAE4DE] bg-[#FAF5F0] p-4 text-xs leading-5 text-[#7A716A]">
             Your chat history will appear here once you start asking questions.
           </div>
         )}

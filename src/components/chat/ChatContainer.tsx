@@ -34,17 +34,22 @@ export default function ChatContainer({
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
           {messages.length === 0 && !submitting ? (
-            <div className="rounded-[1.75rem] border border-dashed border-[#EAE4DE] bg-white px-5 py-5">
-              <div className="text-sm leading-7 text-[#7A716A]">
-                Ask for question explanations, weak-area analysis, shortcuts, or upload a file/image for context.
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+            <div className="space-y-4">
+              <MessageBubble
+                message={{
+                  id: "greeting",
+                  role: "assistant",
+                  content: "Hello! I am VidyaSaathi. How can I help you with your practice test today?",
+                  createdAt: new Date().toISOString(),
+                }}
+              />
+              <div className="flex flex-wrap gap-2">
                 {suggestedPrompts.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
                     onClick={() => onPromptClick(prompt)}
-                    className="rounded-full border border-[#EAE4DE] bg-[#FAF5F0] px-4 py-2 text-xs text-[#231C17]/75 transition hover:border-[#E8722A]/25 hover:bg-[#FFF0E5] hover:text-[#E8722A]"
+                    className="rounded-full border border-[#EAE4DE] bg-white px-4 py-2 text-xs text-[#231C17]/75 shadow-sm transition hover:border-[#E8722A]/25 hover:bg-[#FFF0E5] hover:text-[#E8722A]"
                   >
                     {prompt}
                   </button>

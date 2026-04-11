@@ -559,7 +559,7 @@ export default function StudentAiChatPanel({
             </h3>
           </div>
 
-          <div className="flex h-[34rem] min-w-0 flex-col gap-3 overflow-hidden md:h-[38rem]">
+          <div className="flex h-[55vh] min-h-[400px] max-h-[600px] min-w-0 flex-col gap-3 overflow-hidden">
             <ChatContainer
               messages={messages}
               suggestedPrompts={activePrompts}
