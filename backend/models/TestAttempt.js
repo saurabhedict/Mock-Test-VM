@@ -27,6 +27,7 @@ const testAttemptSchema = new mongoose.Schema(
 );
 
 testAttemptSchema.index({ userId: 1, startedAt: -1 });
+testAttemptSchema.index({ userId: 1, testId: 1, status: 1, completedAt: -1, updatedAt: -1 });
 testAttemptSchema.index({ status: 1, lastActivityAt: -1 });
 testAttemptSchema.index({ status: 1, completedAt: -1, startedAt: -1 });
 

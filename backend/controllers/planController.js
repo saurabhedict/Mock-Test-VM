@@ -1,5 +1,9 @@
 const Plan = require("../models/Plan");
 const { DEFAULT_VALIDITY, sanitizePlanValidity } = require("../utils/planValidity");
+const { setSharedCacheHeaders } = require("../utils/cacheHeaders");
+const { getOrSetCachedValue, clearCachedValuesByPrefix } = require("../utils/inMemoryCache");
+
+const PLAN_CACHE_TTL_MS = 5 * 60 * 1000;
 
 // Seed data — used only when DB has no plans
 const defaultPlans = [
@@ -192,12 +196,46 @@ async function ensurePlanValidityDefaults() {
   );
 }
 
+let plansReadyPromise = null;
+
+const ensurePlansReady = async () => {
+  if (!plansReadyPromise) {
+    plansReadyPromise = Promise.resolve()
+      .then(async () => {
+        await seedPlansIfEmpty();
+        await ensurePlanValidityDefaults();
+      })
+      .catch((error) => {
+        plansReadyPromise = null;
+        throw error;
+      });
+  }
+
+  return plansReadyPromise;
+};
+
+const loadPlans = async () =>
+  getOrSetCachedValue("plans:list", PLAN_CACHE_TTL_MS, async () =>
+    Plan.find()
+      .sort({ order: 1 })
+      .lean()
+  );
+
+const loadPlanById = async (id) =>
+  getOrSetCachedValue(`plans:id:${id}`, PLAN_CACHE_TTL_MS, async () =>
+    Plan.findOne({ id }).lean()
+  );
+
+const clearPlanCaches = () => {
+  clearCachedValuesByPrefix("plans:");
+};
+
 // GET /api/plans — public
 exports.getPlans = async (req, res) => {
   try {
-    await seedPlansIfEmpty();
-    await ensurePlanValidityDefaults();
-    const plans = await Plan.find().sort({ order: 1 });
+    setSharedCacheHeaders(res, { maxAgeSeconds: 300, staleWhileRevalidateSeconds: 3600 });
+    await ensurePlansReady();
+    const plans = await loadPlans();
     res.json({ success: true, plans });
   } catch (error) {
     console.error("getPlans error:", error);
@@ -208,8 +246,9 @@ exports.getPlans = async (req, res) => {
 // GET /api/plans/:id — public
 exports.getPlanById = async (req, res) => {
   try {
-    await ensurePlanValidityDefaults();
-    const plan = await Plan.findOne({ id: req.params.id });
+    setSharedCacheHeaders(res, { maxAgeSeconds: 300, staleWhileRevalidateSeconds: 3600 });
+    await ensurePlansReady();
+    const plan = await loadPlanById(req.params.id);
     if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
     res.json({ success: true, plan });
   } catch (error) {
@@ -240,6 +279,7 @@ exports.createPlan = async (req, res) => {
       personas: personas || [],
       faqs: faqs || [],
     });
+    clearPlanCaches();
     res.status(201).json({ success: true, plan });
   } catch (error) {
     console.error("createPlan error:", error);
@@ -279,6 +319,7 @@ exports.updatePlan = async (req, res) => {
     }
 
     await plan.save();
+    clearPlanCaches();
     res.json({ success: true, plan });
   } catch (error) {
     console.error("updatePlan error:", error);
@@ -291,6 +332,7 @@ exports.deletePlan = async (req, res) => {
   try {
     const plan = await Plan.findOneAndDelete({ id: req.params.id });
     if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
+    clearPlanCaches();
     res.json({ success: true, message: "Plan deleted" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error deleting plan" });

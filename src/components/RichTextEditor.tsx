@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import FormattedContent from "@/components/FormattedContent";
 import MathFormulaDialog from "@/components/MathFormulaDialog";
@@ -82,6 +82,7 @@ export default function RichTextEditor({
   const selectionRef = useRef<SerializedSelection | null>(null);
   const normalizedValue = normalizeRichText(value);
   const isBlank = isRichTextBlank(value);
+  const deferredPreviewValue = useDeferredValue(value);
   const [showFormulaDialog, setShowFormulaDialog] = useState(false);
 
   useEffect(() => {
@@ -320,7 +321,7 @@ export default function RichTextEditor({
               Rendered Preview
             </div>
             <FormattedContent
-              html={value}
+              html={deferredPreviewValue}
               className={cn("mt-3 text-sm leading-relaxed text-foreground", previewClassName)}
             />
           </div>

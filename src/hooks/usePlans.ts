@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import api from "@/services/api";
 import type { Plan } from "@/data/plans";
 
@@ -10,33 +10,23 @@ interface UsePlansResult {
 }
 
 export function usePlans(): UsePlansResult {
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
+  const query = useQuery({
+    queryKey: ["plans"],
+    queryFn: async () => {
+      const { data } = await api.get("/plans");
+      return data.plans || [];
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api
-      .get("/plans")
-      .then(({ data }) => {
-        if (!cancelled) {
-          setPlans(data.plans || []);
-          setError(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPlans([]);
-          setError("Failed to load plans");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [tick]);
-
-  return { plans, loading, error, refetch: () => setTick((t) => t + 1) };
+  return {
+    plans: query.data ?? [],
+    loading: query.isPending && !query.data,
+    error: query.error ? "Failed to load plans" : null,
+    refetch: () => {
+      void query.refetch();
+    },
+  };
 }

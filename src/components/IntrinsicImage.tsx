@@ -21,6 +21,8 @@ export default function IntrinsicImage({ className, onLoad, style, trimWhitespac
     <img
       {...props}
       src={displaySrc}
+      loading={props.loading ?? "lazy"}
+      decoding={props.decoding ?? "async"}
       onLoad={(event) => {
         setNaturalWidth(event.currentTarget.naturalWidth || null);
         onLoad?.(event);

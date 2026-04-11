@@ -10,7 +10,12 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "bench:prepare": "node load-tests/scripts/prepare-students.cjs",
+    "bench:artillery:smoke": "npx artillery run --environment smoke load-tests/artillery/student-session.yml",
+    "bench:artillery:peak200": "npx artillery run --environment peak200 load-tests/artillery/student-session.yml",
+    "bench:artillery:peak500": "npx artillery run --environment peak500 load-tests/artillery/student-session.yml",
+    "bench:artillery:peak2000": "npx artillery run --environment peak2000 load-tests/artillery/student-session.yml"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -8,7 +8,9 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(" ")[1];
       const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
-      const user = await User.findById(decoded.id).select("-password");
+      const user = await User.findById(decoded.id)
+        .select("_id role sessionVersion")
+        .lean();
       if (!user) {
         return res.status(401).json({ success: false, message: "Not authorized — user not found" });
       }
@@ -23,7 +25,12 @@ const protect = async (req, res, next) => {
       }
       // ──────────────────────────────────────────────────────
 
-      req.user = user;
+      req.user = {
+        _id: user._id,
+        id: String(user._id),
+        role: user.role,
+        sessionVersion: user.sessionVersion || 0,
+      };
       next();
     } catch (error) {
       if (error.name === "TokenExpiredError") {

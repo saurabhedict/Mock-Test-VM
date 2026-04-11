@@ -20,11 +20,16 @@ const connectDB = async () => {
     }
 
     if (!globalMongoose.promise) {
+      const defaultMaxPoolSize = process.env.VERCEL ? 10 : 20;
+      const maxPoolSize = Math.max(1, Number(process.env.MONGO_MAX_POOL_SIZE || defaultMaxPoolSize));
+      const minPoolSize = Math.max(0, Number(process.env.MONGO_MIN_POOL_SIZE || 0));
+
       globalMongoose.promise = mongoose.connect(mongoUri, {
-        maxPoolSize: 20,
-        minPoolSize: 5,
+        maxPoolSize,
+        minPoolSize,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
+        maxIdleTimeMS: 30000,
       });
     }
 

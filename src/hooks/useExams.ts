@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import api from "@/services/api";
 import type { DynamicExam } from "@/lib/examCatalog";
 
@@ -10,40 +10,23 @@ interface UseExamsResult {
 }
 
 export function useExams(): UseExamsResult {
-  const [exams, setExams] = useState<DynamicExam[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-
-    api
-      .get("/exams")
-      .then(({ data }) => {
-        if (cancelled) return;
-        setExams(Array.isArray(data) ? data : []);
-        setError(null);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setExams([]);
-        setError("Failed to load exams");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [tick]);
+  const query = useQuery({
+    queryKey: ["exams"],
+    queryFn: async () => {
+      const { data } = await api.get("/exams");
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+  });
 
   return {
-    exams,
-    loading,
-    error,
-    refetch: () => setTick((current) => current + 1),
+    exams: query.data ?? [],
+    loading: query.isPending && !query.data,
+    error: query.error ? "Failed to load exams" : null,
+    refetch: () => {
+      void query.refetch();
+    },
   };
 }

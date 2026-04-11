@@ -2,8 +2,10 @@ const User = require('../models/User');
 const Test = require('../models/Test');
 const TestAttempt = require('../models/TestAttempt');
 const Exam = require('../models/Exam');
+const Question = require('../models/Question');
 const { deleteUserCascade } = require('../services/userDeletionService');
 const { stripHtml } = require('../utils/plainText');
+const { clearCachedValuesByPrefix } = require('../utils/inMemoryCache');
 
 const slugify = (value = "") =>
   value
@@ -38,6 +40,69 @@ const formatExamResponse = (exam) => ({
   subjects: exam.subjects,
   isActive: exam.isActive,
 });
+
+const clearPublicReadCaches = () => {
+  clearCachedValuesByPrefix("exam:");
+  clearCachedValuesByPrefix("exams:");
+  clearCachedValuesByPrefix("test:");
+  clearCachedValuesByPrefix("tests:");
+};
+
+const QUESTION_SELECT =
+  "exam subject question questionType multipleCorrectScoringMode questionImage options correctAnswer correctAnswers writtenAnswer explanation explanationImage difficulty marksPerQuestion negativeMarksPerQuestion";
+
+const getAllowedSubjects = (test) => {
+  const subjects = Array.isArray(test?.subjects) && test.subjects.length ? test.subjects : [test?.subject];
+  return subjects.filter(Boolean);
+};
+
+const buildNormalizedQuestionPayload = (test, questionData = {}) => {
+  const allowedSubjects = getAllowedSubjects(test);
+  const resolvedSubject =
+    questionData.subject && allowedSubjects.includes(questionData.subject)
+      ? questionData.subject
+      : allowedSubjects[0];
+
+  const normalizedQuestion = {
+    ...questionData,
+    exam: test.exam,
+    subject: resolvedSubject,
+    questionType: questionData.questionType || "single",
+    multipleCorrectScoringMode: questionData.multipleCorrectScoringMode || "full_only",
+    options: Array.isArray(questionData.options) ? questionData.options : [],
+    correctAnswers: Array.isArray(questionData.correctAnswers)
+      ? questionData.correctAnswers.map((value) => Number(value))
+      : [],
+    writtenAnswer: stripHtml(questionData.writtenAnswer || "") ? String(questionData.writtenAnswer).trim() : "",
+    marksPerQuestion:
+      questionData.marksPerQuestion === "" || questionData.marksPerQuestion === undefined
+        ? undefined
+        : Number(questionData.marksPerQuestion),
+    negativeMarksPerQuestion:
+      questionData.negativeMarksPerQuestion === "" || questionData.negativeMarksPerQuestion === undefined
+        ? undefined
+        : Number(questionData.negativeMarksPerQuestion),
+  };
+
+  if (normalizedQuestion.questionType === "single") {
+    normalizedQuestion.correctAnswer = Number(questionData.correctAnswer || 0);
+    normalizedQuestion.correctAnswers = [normalizedQuestion.correctAnswer];
+    normalizedQuestion.multipleCorrectScoringMode = "full_only";
+  }
+
+  if (normalizedQuestion.questionType === "multiple") {
+    normalizedQuestion.correctAnswer = normalizedQuestion.correctAnswers[0] ?? 0;
+  }
+
+  if (normalizedQuestion.questionType === "written") {
+    normalizedQuestion.options = [];
+    normalizedQuestion.correctAnswers = [];
+    normalizedQuestion.correctAnswer = -1;
+    normalizedQuestion.multipleCorrectScoringMode = "full_only";
+  }
+
+  return normalizedQuestion;
+};
 
 // @desc    Get all users (paginated + search)
 // @route   GET /api/admin/users
@@ -211,6 +276,7 @@ exports.createExam = async (req, res) => {
       subjects,
     });
 
+    clearPublicReadCaches();
     res.status(201).json(formatExamResponse(exam));
   } catch (error) {
     console.error("CreateExam error:", error);
@@ -264,6 +330,7 @@ exports.updateExam = async (req, res) => {
       await Test.updateMany({ exam: previousSlug }, { $set: { exam: nextSlug } });
     }
 
+    clearPublicReadCaches();
     res.json(formatExamResponse(exam));
   } catch (error) {
     console.error("UpdateExam error:", error);
@@ -284,6 +351,7 @@ exports.deleteExam = async (req, res) => {
     }
 
     await Exam.findByIdAndDelete(req.params.id);
+    clearPublicReadCaches();
     res.json({ msg: "Exam removed" });
   } catch (error) {
     console.error("DeleteExam error:", error);
@@ -307,6 +375,7 @@ exports.createTest = async (req, res) => {
       shuffleQuestions: Boolean(shuffleQuestions),
       shuffleOptions: Boolean(shuffleOptions),
     });
+    clearPublicReadCaches();
     res.status(201).json(test);
   } catch (error) {
     console.error("CreateTest error:", error);
@@ -345,6 +414,7 @@ exports.updateTest = async (req, res) => {
       })
       .lean();
 
+    clearPublicReadCaches();
     res.json({
       ...populatedTest,
       _count: { questions: populatedTest?.questions?.length || 0 },
@@ -361,6 +431,7 @@ exports.updateTest = async (req, res) => {
 exports.deleteTest = async (req, res) => {
   try {
     await Test.findByIdAndDelete(req.params.id);
+    clearPublicReadCaches();
     res.json({ msg: 'Test removed' });
   } catch (error) {
     console.error("DeleteTest error:", error);
@@ -435,7 +506,15 @@ exports.deleteAttemptHistory = async (req, res) => {
 // @access  Private/Admin
 exports.getTestQuestions = async (req, res) => {
   try {
-    const test = await Test.findById(req.params.id).populate('questions');
+    const test = await Test.findById(req.params.id)
+      .select("questions")
+      .populate({
+        path: "questions",
+        select: QUESTION_SELECT,
+        options: { lean: true },
+      })
+      .lean();
+
     if (!test) return res.status(404).json({ msg: 'Test not found' });
     res.json(test.questions);
   } catch (error) {
@@ -455,6 +534,7 @@ exports.updateTestPublished = async (req, res) => {
       { isPublished },
       { new: true }
     );
+    clearPublicReadCaches();
     res.json(test);
   } catch (error) {
     console.error("UpdateTestPublished error:", error);
@@ -470,53 +550,10 @@ exports.saveQuestion = async (req, res) => {
     const { questionId, ...questionData } = req.body;
     const testId = req.params.id;
 
-    const Question = require('../models/Question');
-    const test = await Test.findById(testId);
+    const test = await Test.findById(testId).select("exam subject subjects");
     if (!test) return res.status(404).json({ msg: 'Test not found' });
 
-    const allowedSubjects = test.subjects?.length ? test.subjects : [test.subject];
-    const resolvedSubject =
-      questionData.subject && allowedSubjects.includes(questionData.subject)
-        ? questionData.subject
-        : allowedSubjects[0];
-
-      const normalizedQuestion = {
-        ...questionData,
-        exam: test.exam,
-        subject: resolvedSubject,
-        questionType: questionData.questionType || "single",
-        multipleCorrectScoringMode: questionData.multipleCorrectScoringMode || "full_only",
-        options: Array.isArray(questionData.options) ? questionData.options : [],
-      correctAnswers: Array.isArray(questionData.correctAnswers)
-          ? questionData.correctAnswers.map((value) => Number(value))
-          : [],
-      writtenAnswer: stripHtml(questionData.writtenAnswer || "") ? String(questionData.writtenAnswer).trim() : "",
-      marksPerQuestion:
-        questionData.marksPerQuestion === "" || questionData.marksPerQuestion === undefined
-          ? undefined
-          : Number(questionData.marksPerQuestion),
-      negativeMarksPerQuestion:
-        questionData.negativeMarksPerQuestion === "" || questionData.negativeMarksPerQuestion === undefined
-          ? undefined
-          : Number(questionData.negativeMarksPerQuestion),
-    };
-
-      if (normalizedQuestion.questionType === "single") {
-        normalizedQuestion.correctAnswer = Number(questionData.correctAnswer || 0);
-        normalizedQuestion.correctAnswers = [normalizedQuestion.correctAnswer];
-        normalizedQuestion.multipleCorrectScoringMode = "full_only";
-      }
-
-      if (normalizedQuestion.questionType === "multiple") {
-        normalizedQuestion.correctAnswer = normalizedQuestion.correctAnswers[0] ?? 0;
-      }
-
-      if (normalizedQuestion.questionType === "written") {
-        normalizedQuestion.options = [];
-        normalizedQuestion.correctAnswers = [];
-        normalizedQuestion.correctAnswer = -1;
-        normalizedQuestion.multipleCorrectScoringMode = "full_only";
-      }
+    const normalizedQuestion = buildNormalizedQuestionPayload(test, questionData);
 
     let question;
     if (questionId) {
@@ -528,10 +565,104 @@ exports.saveQuestion = async (req, res) => {
       });
     }
 
+    clearPublicReadCaches();
     res.json(question);
   } catch (error) {
     console.error("SaveQuestion error:", error);
     res.status(500).json({ msg: 'Server Error' });
+  }
+};
+
+// @desc    Batch add/update questions for a test
+// @route   POST /api/admin/tests/:id/questions/batch
+// @access  Private/Admin
+exports.saveBatchQuestions = async (req, res) => {
+  try {
+    const testId = req.params.id;
+    const questions = Array.isArray(req.body?.questions) ? req.body.questions : [];
+
+    if (questions.length === 0) {
+      return res.status(400).json({ msg: "At least one question is required" });
+    }
+
+    if (questions.length > 50) {
+      return res.status(400).json({ msg: "Max 50 questions per batch" });
+    }
+
+    const test = await Test.findById(testId).select("exam subject subjects");
+    if (!test) {
+      return res.status(404).json({ msg: "Test not found" });
+    }
+
+    const results = [];
+    const failed = [];
+    const newQuestionIds = [];
+
+    const existingQuestions = questions.filter((question) => question.questionId);
+    const newQuestions = questions.filter((question) => !question.questionId);
+
+    if (existingQuestions.length > 0) {
+      const existingResults = await Promise.allSettled(
+        existingQuestions.map(async ({ questionId, clientId, ...questionData }) => {
+          const normalizedQuestion = buildNormalizedQuestionPayload(test, questionData);
+          const savedQuestion = await Question.findByIdAndUpdate(questionId, normalizedQuestion, { new: true });
+          if (!savedQuestion) {
+            throw new Error("Question not found");
+          }
+
+          return {
+            clientId,
+            question: savedQuestion,
+          };
+        })
+      );
+
+      existingResults.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          results.push(result.value);
+          return;
+        }
+
+        failed.push({
+          clientId: existingQuestions[index].clientId,
+          questionId: existingQuestions[index].questionId,
+          error: result.reason?.message || "Failed to save question",
+        });
+      });
+    }
+
+    for (const { clientId, ...questionData } of newQuestions) {
+      try {
+        const normalizedQuestion = buildNormalizedQuestionPayload(test, questionData);
+        const savedQuestion = await Question.create(normalizedQuestion);
+        newQuestionIds.push(savedQuestion._id);
+        results.push({
+          clientId,
+          question: savedQuestion,
+        });
+      } catch (error) {
+        failed.push({
+          clientId,
+          error: error?.message || "Failed to create question",
+        });
+      }
+    }
+
+    if (newQuestionIds.length > 0) {
+      await Test.findByIdAndUpdate(testId, {
+        $push: { questions: { $each: newQuestionIds } },
+      });
+    }
+
+    clearPublicReadCaches();
+    res.json({
+      success: failed.length === 0,
+      results,
+      failed,
+    });
+  } catch (error) {
+    console.error("SaveBatchQuestions error:", error);
+    res.status(500).json({ msg: "Server Error" });
   }
 };
 
@@ -557,6 +688,7 @@ exports.deleteQuestion = async (req, res) => {
       await Question.findByIdAndDelete(questionId);
     }
 
+    clearPublicReadCaches();
     res.json({ msg: 'Question removed' });
   } catch (error) {
     console.error("DeleteQuestion error:", error);

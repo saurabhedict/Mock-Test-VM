@@ -459,14 +459,22 @@ export default function TestInterfacePage() {
   }, [handleSubmit, hasStartedSession, loading, state, timeLeft]);
 
   useEffect(() => {
-    if (state) localStorage.setItem(`test_${testId}`, JSON.stringify(state));
+    if (!state) return;
+
+    const storageKey = `test_${testId}`;
+    const serializedState = JSON.stringify(state);
+    const timer = window.setTimeout(() => {
+      localStorage.setItem(storageKey, serializedState);
+    }, 250);
+
+    return () => window.clearTimeout(timer);
   }, [state, testId]);
 
   useEffect(() => {
     if (!hasStartedSession || !state?.attemptId || hasSubmittedRef.current) return;
     const interval = window.setInterval(() => {
       api.post('/tests/session/heartbeat', { attemptId: state.attemptId }).catch(() => {});
-    }, 45000);
+    }, 75000);
     return () => window.clearInterval(interval);
   }, [hasStartedSession, state?.attemptId]);
 

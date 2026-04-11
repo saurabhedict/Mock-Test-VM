@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-04-03T19:45:56.136Z",
+  "campaign": "vmbench",
+  "userCount": 2600,
+  "outputPath": "C:\\Users\\saura\\OneDrive\\Desktop\\touch-final\\Mock-Test-VM-main\\load-tests\\artillery\\students.csv",
+  "publishedTest": {
+    "testId": "69c28ba73611b25105ebcc97",
+    "examId": "mhtcet-pcb",
+    "title": "Paper-3(Full Length PCB)"
+  }
+}

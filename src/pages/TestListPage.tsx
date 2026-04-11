@@ -1,52 +1,56 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useQuery } from "@tanstack/react-query";
 import { Clock, FileText, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import api from '@/services/api';
 import { findExamInCatalog, type DynamicExam } from '@/lib/examCatalog';
+import { useExams } from '@/hooks/useExams';
 
 const normalizeLabel = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 export default function TestListPage() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
-  
-  const [dynamicExams, setDynamicExams] = useState<DynamicExam[]>([]);
-  const [dynamicTests, setDynamicTests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { exams: dynamicExams, loading: examsLoading } = useExams();
+  const testsQuery = useQuery({
+    queryKey: ["exam-tests", examId],
+    enabled: Boolean(examId),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    queryFn: async () => {
+      const { data: testData } = await api.get(`/tests/exam/${examId}`);
+      return (testData || []).map((t: any) => ({
+        testId: t._id,
+        testName: t.title,
+        subject: t.subject,
+        subjects: t.subjects || [t.subject],
+        totalQuestions: t.totalQuestions || 0,
+        totalMarks: t.totalMarks,
+        duration: t.durationMinutes,
+        type: (t.subjects?.length || 0) > 1 || t.subject === 'All Subjects' ? 'full-length' : 'subject',
+      }));
+    },
+  });
 
-  useEffect(() => {
-    const fetchDynamicTests = async () => {
-      try {
-        const [{ data: examData }, { data: testData }] = await Promise.all([
-          api.get('/exams'),
-          api.get(`/tests/exam/${examId}`),
-        ]);
-        setDynamicExams(examData);
-        setDynamicTests(testData.map((t: any) => ({
-          testId: t._id,
-          testName: t.title,
-          subject: t.subject,
-          subjects: t.subjects || [t.subject],
-          totalQuestions: t.totalQuestions || 0,
-          totalMarks: t.totalMarks,
-          duration: t.durationMinutes,
-          type: (t.subjects?.length || 0) > 1 || t.subject === 'All Subjects' ? 'full-length' : 'subject'
-        })));
-      } catch (error) {
-        console.error("Failed to fetch dynamic tests:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (examId) fetchDynamicTests();
-  }, [examId]);
-
-  const exam = findExamInCatalog(examId || '', dynamicExams);
-  const tests = dynamicTests;
+  const loading = examsLoading || (testsQuery.isPending && !testsQuery.data);
+  const exam = findExamInCatalog(examId || '', dynamicExams as DynamicExam[]);
+  const tests = testsQuery.data ?? [];
+  const subjectTests = useMemo(() => tests.filter((test) => test.type === 'subject'), [tests]);
+  const fullLengthTests = useMemo(() => tests.filter((test) => test.type === 'full-length'), [tests]);
+  const groupedSubjects = useMemo(() => {
+    const grouped: Record<string, typeof subjectTests> = {};
+    subjectTests.forEach((test) => {
+      const subject = test.subject;
+      if (!grouped[subject]) grouped[subject] = [];
+      grouped[subject].push(test);
+    });
+    return grouped;
+  }, [subjectTests]);
 
   if (loading && !exam) {
     return (
@@ -70,17 +74,6 @@ export default function TestListPage() {
       </div>
     );
   }
-
-  const subjectTests = tests.filter(t => t.type === 'subject');
-  const fullLengthTests = tests.filter(t => t.type === 'full-length');
-
-  // Group subject tests by subject
-  const groupedSubjects: Record<string, typeof subjectTests> = {};
-  subjectTests.forEach(t => {
-    const sub = t.subject;
-    if (!groupedSubjects[sub]) groupedSubjects[sub] = [];
-    groupedSubjects[sub].push(t);
-  });
 
   const matchedFullLengthTestIds = new Set<string>();
 

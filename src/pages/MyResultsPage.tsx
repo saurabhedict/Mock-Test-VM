@@ -38,14 +38,24 @@ export default function MyResultsPage() {
       }
 
       try {
-        const [attemptsResponse, analyticsResponse, recommendationsResponse, predictionResponse] = await Promise.allSettled([
-          api.get("/tests/my-attempts"),
+        const { data: attemptsData } = await api.get("/tests/my-attempts");
+        const attempts = attemptsData || [];
+        setApiAttempts(attempts);
+
+        const completedAttempts = attempts.filter((attempt: ApiAttempt) => attempt.status === "COMPLETED" || attempt.status === "AUTO_SUBMITTED");
+        if (completedAttempts.length === 0) {
+          setAnalytics(null);
+          setRecommendations(null);
+          setPrediction(null);
+          return;
+        }
+
+        const [analyticsResponse, recommendationsResponse, predictionResponse] = await Promise.allSettled([
           api.get(`/analytics/${user._id}`),
           api.post("/recommendations", { studentId: user._id }),
           api.post("/predict-performance", { studentId: user._id }),
         ]);
 
-        setApiAttempts(attemptsResponse.status === "fulfilled" ? attemptsResponse.value.data || [] : []);
         setAnalytics(analyticsResponse.status === "fulfilled" ? analyticsResponse.value.data?.analytics || null : null);
         setRecommendations(
           recommendationsResponse.status === "fulfilled" ? recommendationsResponse.value.data?.recommendations || null : null
@@ -53,6 +63,9 @@ export default function MyResultsPage() {
         setPrediction(predictionResponse.status === "fulfilled" ? predictionResponse.value.data?.prediction || null : null);
       } catch {
         setApiAttempts([]);
+        setAnalytics(null);
+        setRecommendations(null);
+        setPrediction(null);
       } finally {
         setLoading(false);
       }

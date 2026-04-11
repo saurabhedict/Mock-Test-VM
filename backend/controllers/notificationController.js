@@ -1,11 +1,15 @@
 const Notification = require("../models/Notification");
+const { setPrivateNoStoreHeaders } = require("../utils/cacheHeaders");
 
 // GET all notifications (all users)
 exports.getNotifications = async (req, res) => {
   try {
+    setPrivateNoStoreHeaders(res);
     const notifications = await Notification.find()
+      .select("type message createdAt")
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(20)
+      .lean();
     res.json({ success: true, notifications });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error" });

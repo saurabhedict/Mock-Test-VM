@@ -1,13 +1,16 @@
 const router = require("express").Router();
 const { startTest, getTestsByExam, getTestById, getCompletedTestReview } = require("../controllers/testController");
 const { protect } = require("../middleware/authMiddleware");
-const TestModel = require("../models/Test");
-const Exam = require("../models/Exam");
+const TestAttempt = require("../models/TestAttempt");
 const { setPrivateNoStoreHeaders } = require("../utils/cacheHeaders");
 const {
   calculateAttemptSummary,
   buildAttemptQuestionSnapshots,
 } = require("../services/scoringService");
+const {
+  getScoringTestBundle,
+  getSessionStartSummary,
+} = require("../services/testReadService");
 
 const buildTopicBreakdown = (snapshots = []) =>
   Object.values(
@@ -60,10 +63,10 @@ const buildDifficultyBreakdown = (snapshots = []) =>
 router.get("/my-attempts", protect, async (req, res) => {
   try {
     setPrivateNoStoreHeaders(res);
-    const TestAttempt = require("../models/TestAttempt");
     const attempts = await TestAttempt.find({ userId: req.user._id })
       .select("testId status score totalQuestions totalMarks accuracy testTitle examId startedAt completedAt timeTakenSeconds")
-      .sort({ startedAt: -1 });
+      .sort({ startedAt: -1 })
+      .lean();
 
     const result = attempts.map(a => ({
       _id: a._id,
@@ -90,19 +93,18 @@ router.get("/my-attempts", protect, async (req, res) => {
 router.post("/submit", protect, async (req, res) => {
   try {
     setPrivateNoStoreHeaders(res);
-    const TestAttempt = require("../models/TestAttempt");
     const { testId, answers, timeTaken, perQuestionTimes = [], attemptId, status, violationReason } = req.body;
 
     if (!testId) {
       return res.status(400).json({ msg: "testId is required" });
     }
 
-    const test = await TestModel.findById(testId).populate("questions").lean();
-    if (!test) {
+    const bundle = await getScoringTestBundle(testId);
+    if (!bundle?.test) {
       return res.status(404).json({ msg: "Test not found" });
     }
 
-    const exam = await Exam.findOne({ slug: test.exam }).lean();
+    const { test, exam } = bundle;
     const summary = calculateAttemptSummary(test.questions || [], answers || {}, exam);
     const snapshots = buildAttemptQuestionSnapshots(test.questions || [], answers || {}, exam, perQuestionTimes);
     const accuracyDenominator = summary.correct + summary.partial + summary.wrong;
@@ -146,7 +148,15 @@ router.post("/submit", protect, async (req, res) => {
     if (!attempt) {
       attempt = await TestAttempt.create(attemptPayload);
     }
-    res.status(201).json({ success: true, attempt, summary });
+    res.status(201).json({
+      success: true,
+      attempt: {
+        _id: attempt._id,
+        status: attempt.status,
+        terminationReason: attempt.terminationReason || "",
+      },
+      summary,
+    });
   } catch (error) {
     console.error("Submit test error:", error.message);
     res.status(500).json({ msg: "Server Error", error: error.message });
@@ -156,14 +166,13 @@ router.post("/submit", protect, async (req, res) => {
 router.post("/session/start", protect, async (req, res) => {
   try {
     setPrivateNoStoreHeaders(res);
-    const TestAttempt = require("../models/TestAttempt");
     const { testId, startedAt } = req.body;
 
     if (!testId) {
       return res.status(400).json({ success: false, message: "testId is required" });
     }
 
-    const test = await TestModel.findById(testId).select("title exam questions totalMarks").lean();
+    const test = await getSessionStartSummary(testId);
     if (!test) {
       return res.status(404).json({ success: false, message: "Test not found" });
     }
@@ -174,14 +183,14 @@ router.post("/session/start", protect, async (req, res) => {
       testId: String(testId),
       examId: test.exam || "",
       testTitle: test.title || "",
-      totalQuestions: Array.isArray(test.questions) ? test.questions.length : 0,
+      totalQuestions: Number(test.totalQuestions || 0),
       totalMarks: Number(test.totalMarks || 0),
       startedAt: Number.isNaN(safeStartedAt.getTime()) ? new Date() : safeStartedAt,
       lastActivityAt: new Date(),
       status: "IN_PROGRESS",
     });
 
-    res.status(201).json({ success: true, attempt });
+    res.status(201).json({ success: true, attempt: { _id: attempt._id } });
   } catch (error) {
     console.error("Start test session error:", error.message);
     res.status(500).json({ success: false, message: "Server Error" });
@@ -191,24 +200,22 @@ router.post("/session/start", protect, async (req, res) => {
 router.post("/session/heartbeat", protect, async (req, res) => {
   try {
     setPrivateNoStoreHeaders(res);
-    const TestAttempt = require("../models/TestAttempt");
     const { attemptId } = req.body;
 
     if (!attemptId) {
       return res.status(400).json({ success: false, message: "attemptId is required" });
     }
 
-    const attempt = await TestAttempt.findOneAndUpdate(
+    const updateResult = await TestAttempt.updateOne(
       { _id: attemptId, userId: req.user._id, status: "IN_PROGRESS" },
-      { $set: { lastActivityAt: new Date() } },
-      { new: true }
+      { $set: { lastActivityAt: new Date() } }
     );
 
-    if (!attempt) {
+    if (updateResult.matchedCount === 0) {
       return res.status(404).json({ success: false, message: "Attempt not found" });
     }
 
-    res.json({ success: true, attemptId: attempt._id });
+    res.json({ success: true, attemptId });
   } catch (error) {
     console.error("Heartbeat error:", error.message);
     res.status(500).json({ success: false, message: "Server Error" });

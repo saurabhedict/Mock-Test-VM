@@ -16,6 +16,7 @@ const examRoutes = require("./routes/examRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 
 const app = express();
+app.disable("x-powered-by");
 
 connectDB();
 
@@ -30,8 +31,8 @@ app.use(cors({
 // Payment Webhook (must be before express.json())
 app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
 // Routes

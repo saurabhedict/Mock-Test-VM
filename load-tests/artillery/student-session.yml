@@ -1,0 +1,102 @@
+config:
+  target: "{{ $processEnvironment.TARGET_URL }}"
+  processor: "./processor.cjs"
+  http:
+    timeout: 30
+  plugins:
+    metrics-by-endpoint: {}
+  payload:
+    path: "./students.csv"
+    fields:
+      - email
+      - password
+    skipHeader: true
+    order: sequence
+  defaults:
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      x-vercel-protection-bypass: "{{ $processEnvironment.VERCEL_PROTECTION_BYPASS_TOKEN }}"
+  environments:
+    smoke:
+      phases:
+        - name: smoke-check
+          duration: 60
+          arrivalRate: 1
+          maxVusers: 10
+    peak200:
+      phases:
+        - name: prove-200-concurrent-students
+          duration: 100
+          arrivalRate: 3
+          maxVusers: 320
+    peak500:
+      phases:
+        - name: prove-500-concurrent-students
+          duration: 100
+          arrivalRate: 7
+          maxVusers: 800
+    peak2000:
+      phases:
+        - name: prove-2000-concurrent-students
+          duration: 100
+          arrivalRate: 26
+          maxVusers: 2800
+
+scenarios:
+  - name: authenticated-student-session
+    flow:
+      - function: prepareStudentContext
+
+      - post:
+          url: /api/auth/login{{ protectionBypassQuery }}
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: $.accessToken
+              as: accessToken
+          afterResponse: ensureAccessToken
+
+      - get:
+          url: /api/exams{{ protectionBypassQuery }}
+
+      - get:
+          url: /api/tests/exam/{{ examId }}{{ protectionBypassQuery }}
+
+      - get:
+          url: /api/tests/{{ testId }}{{ protectionBypassQuery }}
+
+      - post:
+          url: /api/tests/session/start{{ protectionBypassQuery }}
+          headers:
+            Authorization: Bearer {{ accessToken }}
+            x-vercel-protection-bypass: "{{ $processEnvironment.VERCEL_PROTECTION_BYPASS_TOKEN }}"
+          json:
+            testId: "{{ testId }}"
+          capture:
+            - json: $.attempt._id
+              as: attemptId
+          afterResponse: ensureAttemptId
+
+      - think: "{{ sessionWaitSeconds }}"
+
+      - post:
+          url: /api/tests/session/heartbeat{{ protectionBypassQuery }}
+          headers:
+            Authorization: Bearer {{ accessToken }}
+            x-vercel-protection-bypass: "{{ $processEnvironment.VERCEL_PROTECTION_BYPASS_TOKEN }}"
+          json:
+            attemptId: "{{ attemptId }}"
+
+      - post:
+          url: /api/tests/submit{{ protectionBypassQuery }}
+          headers:
+            Authorization: Bearer {{ accessToken }}
+            x-vercel-protection-bypass: "{{ $processEnvironment.VERCEL_PROTECTION_BYPASS_TOKEN }}"
+          json:
+            attemptId: "{{ attemptId }}"
+            testId: "{{ testId }}"
+            answers: {}
+            timeTaken: "{{ timeTakenSeconds }}"
+            perQuestionTimes: []

@@ -209,7 +209,9 @@ export default function Header() {
         )}
       </header>
 
-      <QuickAccessSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {sidebarOpen ? (
+        <QuickAccessSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      ) : null}
     </>
   );
 }
