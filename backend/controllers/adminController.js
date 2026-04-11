@@ -6,6 +6,7 @@ const Question = require('../models/Question');
 const { deleteUserCascade } = require('../services/userDeletionService');
 const { stripHtml } = require('../utils/plainText');
 const { clearCachedValuesByPrefix } = require('../utils/inMemoryCache');
+const { toIdString } = require('../utils/toIdString');
 
 const slugify = (value = "") =>
   value
@@ -27,7 +28,7 @@ const normalizeSubjects = (subjects = []) =>
     .filter((subject) => subject.name);
 
 const formatExamResponse = (exam) => ({
-  _id: exam._id,
+  _id: toIdString(exam._id),
   examId: exam.slug,
   slug: exam.slug,
   examName: exam.name,
@@ -39,6 +40,11 @@ const formatExamResponse = (exam) => ({
   totalMarks: exam.totalMarks,
   subjects: exam.subjects,
   isActive: exam.isActive,
+});
+
+const formatTestResponse = (test) => ({
+  ...test,
+  _id: toIdString(test._id),
 });
 
 const clearPublicReadCaches = () => {
@@ -219,7 +225,7 @@ exports.getAllTests = async (req, res) => {
     
     // Convert to the response format expected (e.g. including a count)
     const formattedTests = tests.map(test => ({
-      ...test.toObject(),
+      ...formatTestResponse(test.toObject()),
       _count: { questions: test.questions.length }
     }));
     
@@ -376,7 +382,7 @@ exports.createTest = async (req, res) => {
       shuffleOptions: Boolean(shuffleOptions),
     });
     clearPublicReadCaches();
-    res.status(201).json(test);
+    res.status(201).json(formatTestResponse(test.toObject()));
   } catch (error) {
     console.error("CreateTest error:", error);
     res.status(500).json({ msg: 'Server Error' });
@@ -415,10 +421,10 @@ exports.updateTest = async (req, res) => {
       .lean();
 
     clearPublicReadCaches();
-    res.json({
+    res.json(formatTestResponse({
       ...populatedTest,
       _count: { questions: populatedTest?.questions?.length || 0 },
-    });
+    }));
   } catch (error) {
     console.error("UpdateTest error:", error);
     res.status(500).json({ msg: 'Server Error' });
@@ -535,7 +541,7 @@ exports.updateTestPublished = async (req, res) => {
       { new: true }
     );
     clearPublicReadCaches();
-    res.json(test);
+    res.json(formatTestResponse(test.toObject()));
   } catch (error) {
     console.error("UpdateTestPublished error:", error);
     res.status(500).json({ msg: 'Server Error' });

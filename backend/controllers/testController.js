@@ -1,6 +1,7 @@
 const TestAttempt = require("../models/TestAttempt");
 const Question = require("../models/Question");
 const { setPrivateNoStoreHeaders, setSharedCacheHeaders } = require("../utils/cacheHeaders");
+const { toIdString } = require("../utils/toIdString");
 const {
   getTestsByExamSummary,
   getPublicTestBundle,
@@ -67,7 +68,7 @@ exports.getCompletedTestReview = async (req, res) => {
     res.json({
       ...test,
       attempt: {
-        _id: attempt._id,
+        _id: toIdString(attempt._id),
         status: attempt.status,
         terminationReason: attempt.terminationReason || "",
         completedAt: attempt.completedAt,

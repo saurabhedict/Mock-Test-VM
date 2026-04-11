@@ -358,7 +358,7 @@ export default function TestInterfacePage() {
       try {
         const { data } = await api.get(`/tests/${testId}`);
         const rawQuestions: BaseTestQuestion[] = data.questions.map((q: any) => ({
-          id: q._id,
+          id: String(q._id ?? q.id ?? ''),
           question: q.question,
           questionType: q.questionType || 'single',
           questionImage: q.questionImage,

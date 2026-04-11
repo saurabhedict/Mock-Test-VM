@@ -3,10 +3,11 @@ const {
   PLAN_OR_CATALOG_CACHE_TTL_MS,
 } = require("../services/testReadService");
 const { getOrSetCachedValue } = require("../utils/inMemoryCache");
+const { toIdString } = require("../utils/toIdString");
 const Exam = require("../models/Exam");
 
 const mapExam = (exam) => ({
-  _id: exam._id,
+  _id: toIdString(exam._id),
   examId: exam.slug,
   slug: exam.slug,
   examName: exam.name,

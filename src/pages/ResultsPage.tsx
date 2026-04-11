@@ -111,7 +111,7 @@ export default function ResultsPage() {
           params: result.attemptId ? { attemptId: result.attemptId } : undefined,
         });
         const latestQuestions = new Map(
-          (data.questions || []).map((question: Question & { _id?: string }) => [question._id || question.id, question]),
+          (data.questions || []).map((question: Question & { _id?: string }) => [String(question._id || question.id || ''), question]),
         );
 
         if (cancelled) return;
@@ -123,7 +123,7 @@ export default function ResultsPage() {
 
             const reorderedLatest = reorderQuestionUsingSavedOptions(
               {
-                id: latest._id || latest.id,
+                id: String(latest._id || latest.id || ''),
                 question: latest.question,
                 questionType: latest.questionType || 'single',
                 questionImage: latest.questionImage,
@@ -164,7 +164,7 @@ export default function ResultsPage() {
             ...current,
             questions: mergedQuestions,
             subjects: data.examDetails?.subjects || current.subjects,
-            attemptId: data.attempt?._id || current.attemptId,
+            attemptId: data.attempt?._id ? String(data.attempt._id) : current.attemptId,
             submissionStatus: data.attempt?.status || current.submissionStatus,
             autoSubmitReason: data.attempt?.terminationReason || current.autoSubmitReason,
           };

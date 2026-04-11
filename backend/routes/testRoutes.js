@@ -3,6 +3,7 @@ const { startTest, getTestsByExam, getTestById, getCompletedTestReview } = requi
 const { protect } = require("../middleware/authMiddleware");
 const TestAttempt = require("../models/TestAttempt");
 const { setPrivateNoStoreHeaders } = require("../utils/cacheHeaders");
+const { toIdString } = require("../utils/toIdString");
 const {
   calculateAttemptSummary,
   buildAttemptQuestionSnapshots,
@@ -69,7 +70,7 @@ router.get("/my-attempts", protect, async (req, res) => {
       .lean();
 
     const result = attempts.map(a => ({
-      _id: a._id,
+      _id: toIdString(a._id),
       status: a.status,
       score: a.score,
       totalQuestions: a.totalQuestions || 0,
@@ -151,7 +152,7 @@ router.post("/submit", protect, async (req, res) => {
     res.status(201).json({
       success: true,
       attempt: {
-        _id: attempt._id,
+        _id: toIdString(attempt._id),
         status: attempt.status,
         terminationReason: attempt.terminationReason || "",
       },
@@ -190,7 +191,7 @@ router.post("/session/start", protect, async (req, res) => {
       status: "IN_PROGRESS",
     });
 
-    res.status(201).json({ success: true, attempt: { _id: attempt._id } });
+    res.status(201).json({ success: true, attempt: { _id: toIdString(attempt._id) } });
   } catch (error) {
     console.error("Start test session error:", error.message);
     res.status(500).json({ success: false, message: "Server Error" });

@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const TestModel = require("../models/Test");
 const Exam = require("../models/Exam");
 const { getOrSetCachedValue } = require("../utils/inMemoryCache");
+const { toIdString } = require("../utils/toIdString");
 
 const EXAM_SELECT = "slug name shortName durationMinutes totalQuestions totalMarks subjects";
 const TEST_SELECT =
@@ -19,6 +20,20 @@ const TEST_LIST_CACHE_TTL_MS = 60 * 1000;
 const TEST_DETAIL_CACHE_TTL_MS = 60 * 1000;
 
 const mapSubjects = (test) => (test.subjects?.length ? test.subjects : [test.subject]);
+const normalizeQuestion = (question) =>
+  question
+    ? {
+        ...question,
+        _id: toIdString(question._id),
+      }
+    : question;
+const normalizeTestDocument = (test) => ({
+  ...test,
+  _id: toIdString(test._id),
+  exam: String(test.exam || ""),
+  subject: String(test.subject || ""),
+  questions: Array.isArray(test.questions) ? test.questions.map(normalizeQuestion) : test.questions,
+});
 
 const buildExamDetails = (exam) =>
   exam
@@ -34,7 +49,7 @@ const buildExamDetails = (exam) =>
     : null;
 
 const buildTestResponse = (test, exam) => ({
-  ...test,
+  ...normalizeTestDocument(test),
   subjects: mapSubjects(test),
   examDetails: buildExamDetails(exam),
 });
@@ -75,6 +90,9 @@ const getTestsByExamSummary = async (examId) =>
 
     return tests.map((test) => ({
       ...test,
+      _id: toIdString(test._id),
+      exam: String(test.exam || ""),
+      subject: String(test.subject || ""),
       subjects: test.subjects?.length ? test.subjects : [test.subject],
     }));
   });

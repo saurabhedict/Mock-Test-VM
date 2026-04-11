@@ -11,6 +11,7 @@ import { findExamInCatalog, type DynamicExam } from '@/lib/examCatalog';
 import { useExams } from '@/hooks/useExams';
 
 const normalizeLabel = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const normalizeClientId = (value: unknown) => (typeof value === "string" ? value : String(value ?? ""));
 
 export default function TestListPage() {
   const { examId } = useParams<{ examId: string }>();
@@ -25,7 +26,7 @@ export default function TestListPage() {
     queryFn: async () => {
       const { data: testData } = await api.get(`/tests/exam/${examId}`);
       return (testData || []).map((t: any) => ({
-        testId: t._id,
+        testId: normalizeClientId(t._id),
         testName: t.title,
         subject: t.subject,
         subjects: t.subjects || [t.subject],
@@ -147,7 +148,7 @@ export default function TestListPage() {
             const fltTests = fullLengthTests.filter(t => {
               const testSubjects = (t.subjects || [t.subject]).map((subject: string) => normalizeLabel(subject)).sort().join("|");
               const subjectMatch = expectedSubjects.length > 0 && testSubjects === expectedSubjects;
-              const idMatch = normalizeLabel(t.testName).includes(normalizeLabel(flt.testName)) || t.testId.includes(flt.testId);
+              const idMatch = normalizeLabel(t.testName).includes(normalizeLabel(flt.testName)) || normalizeClientId(t.testId).includes(flt.testId);
               return subjectMatch || idMatch;
             });
             fltTests.forEach(test => matchedFullLengthTestIds.add(test.testId));
