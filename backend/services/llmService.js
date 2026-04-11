@@ -1,5 +1,39 @@
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta";
 
+const IMAGE_FETCH_TIMEOUT_MS = 8000;
+
+/**
+ * Fetch an image URL, returning a Gemini-compatible inlineData part.
+ * Returns null on failure so callers can safely skip broken images.
+ */
+const fetchImageAsInlineData = async (url) => {
+  if (!url || typeof url !== "string") return null;
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+
+    if (!response.ok) return null;
+
+    const contentType = response.headers.get("content-type") || "image/png";
+    const mimeType = contentType.split(";")[0].trim();
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+
+    return {
+      inlineData: {
+        mimeType,
+        data: base64,
+      },
+    };
+  } catch {
+    return null;
+  }
+};
+
 const getGeminiApiKey = () => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
@@ -31,20 +65,46 @@ const extractMessageText = (content) => {
 const normalizeContents = (input = []) => {
   if (!Array.isArray(input)) {
     const text = extractMessageText(input);
-    return text ? [{ role: "user", parts: [{ text }] }] : [];
+    return { contents: text ? [{ role: "user", parts: [{ text }] }] : [], imageUrls: [] };
   }
 
-  return input
-    .map((message) => {
-      const text = extractMessageText(message?.content);
-      if (!text) return null;
+  const imageUrls = [];
+  const contents = [];
 
-      return {
-        role: message?.role === "assistant" ? "model" : "user",
-        parts: [{ text }],
-      };
-    })
-    .filter(Boolean);
+  for (const message of input) {
+    const parts = [];
+
+    if (typeof message?.content === "string") {
+      const trimmed = message.content.trim();
+      if (trimmed) parts.push({ text: trimmed });
+    } else if (Array.isArray(message?.content)) {
+      for (const item of message.content) {
+        if (typeof item === "string") {
+          if (item.trim()) parts.push({ text: item.trim() });
+        } else if (
+          item?.type === "input_text" ||
+          item?.type === "output_text" ||
+          item?.type === "text"
+        ) {
+          const t = (item?.text || "").trim();
+          if (t) parts.push({ text: t });
+        } else if (item?.type === "image_url" && item?.url) {
+          // Track this image so it can be fetched asynchronously later
+          imageUrls.push({ messageIndex: contents.length, partIndex: parts.length, url: item.url });
+          parts.push({ text: "[image attached]" }); // placeholder, will be replaced
+        }
+      }
+    }
+
+    if (!parts.length) continue;
+
+    contents.push({
+      role: message?.role === "assistant" ? "model" : "user",
+      parts,
+    });
+  }
+
+  return { contents, imageUrls };
 };
 
 const extractResponseText = (response) =>
@@ -188,9 +248,28 @@ const createStructuredResponse = async ({
   schema,
   maxOutputTokens = 3500,
 }) => {
+  const { contents, imageUrls } = normalizeContents(input);
+
+  // Resolve any image URLs into inline data parts
+  if (imageUrls.length > 0) {
+    const fetched = await Promise.all(imageUrls.map((entry) => fetchImageAsInlineData(entry.url)));
+    for (let i = 0; i < imageUrls.length; i++) {
+      const entry = imageUrls[i];
+      const inlinePart = fetched[i];
+      const msg = contents[entry.messageIndex];
+      if (msg && inlinePart) {
+        // Replace the placeholder with the real image part
+        msg.parts[entry.partIndex] = inlinePart;
+      } else if (msg) {
+        // Remove the placeholder text if image fetch failed
+        msg.parts[entry.partIndex] = { text: "[image could not be loaded]" };
+      }
+    }
+  }
+
   const response = await generateContent({
     model,
-    contents: normalizeContents(input),
+    contents,
     instructions,
     generationConfig: {
       maxOutputTokens,
@@ -237,9 +316,10 @@ const createTextResponse = async ({
   instructions,
   maxOutputTokens = 900,
 }) => {
+  const { contents } = normalizeContents(input);
   const response = await generateContent({
     model,
-    contents: normalizeContents(input),
+    contents,
     instructions,
     generationConfig: {
       maxOutputTokens,
