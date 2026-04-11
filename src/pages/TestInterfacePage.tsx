@@ -614,15 +614,19 @@ export default function TestInterfacePage() {
   }, { single: 0, multiple: 0, written: 0 }), [questions]);
 
   const markingRows = useMemo(() => {
-    if (testInfo?.subjects?.length) return testInfo.subjects;
     const subjectMap = new Map<string, ExamSubjectMarkingRule>();
+    const predefinedSubjects = new Map(testInfo?.subjects?.map((s) => [s.name, s]));
+    
     questions.forEach((question) => {
-      if (!question.subject || subjectMap.has(question.subject)) return;
-      subjectMap.set(question.subject, {
-        name: question.subject,
-        marksPerQuestion: question.marksPerQuestion ?? 1,
-        negativeMarksPerQuestion: question.negativeMarksPerQuestion ?? 0,
-      });
+      const subjName = question.subject || 'General';
+      if (!subjectMap.has(subjName)) {
+        const predefined = predefinedSubjects.get(subjName);
+        subjectMap.set(subjName, {
+          name: subjName,
+          marksPerQuestion: question.marksPerQuestion ?? predefined?.marksPerQuestion ?? 1,
+          negativeMarksPerQuestion: question.negativeMarksPerQuestion ?? predefined?.negativeMarksPerQuestion ?? 0,
+        });
+      }
     });
     return Array.from(subjectMap.values());
   }, [questions, testInfo?.subjects]);
@@ -831,7 +835,7 @@ export default function TestInterfacePage() {
                   { label: 'Questions', value: questions.length },
                   { label: 'Duration', value: formatDurationLabel(testInfo?.duration || 0) },
                   { label: 'Total Marks', value: testInfo?.totalMarks || 0 },
-                  { label: 'Subjects', value: Math.max(markingRows.length, availableSubjects.length || 1) },
+                  { label: 'Subjects', value: availableSubjects.length || 1 },
                 ].map((item) => (
                   <div key={item.label} className="flex min-h-[122px] min-w-0 flex-col justify-between rounded-2xl border border-border bg-muted/20 p-4">
                     <p className="min-h-[2.75rem] break-words text-xs uppercase tracking-[0.2em] text-muted-foreground sm:min-h-[3rem]">{item.label}</p>
@@ -860,21 +864,27 @@ export default function TestInterfacePage() {
 
                     <div className="min-w-0 rounded-2xl border border-border bg-card p-4">
                       <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Test Structure</p>
-                      <div className="mt-3 grid gap-x-4 gap-y-3 text-sm sm:grid-cols-[minmax(0,140px)_minmax(0,1fr)] sm:items-start">
-                        <span className="break-words text-muted-foreground">Test Name</span>
-                        <span className="min-w-0 break-words font-semibold sm:text-right">{testInfo?.testName || 'Practice Test'}</span>
-
-                        <span className="break-words text-muted-foreground">Section Filter</span>
-                        <span className="min-w-0 break-words font-semibold sm:text-right">{availableSubjects.length > 1 ? 'Enabled' : 'Single Subject'}</span>
-
-                        <span className="break-words text-muted-foreground">Question Palette</span>
-                        <span className="min-w-0 break-words font-semibold sm:text-right">Visible During Test</span>
-
-                        <span className="break-words text-muted-foreground">Question Order</span>
-                        <span className="min-w-0 break-words font-semibold sm:text-right">{testInfo?.shuffleQuestions ? 'Randomized Per Student' : 'Fixed Order'}</span>
-
-                        <span className="break-words text-muted-foreground">Option Order</span>
-                        <span className="min-w-0 break-words font-semibold sm:text-right">{testInfo?.shuffleOptions ? 'Randomized Per Student' : 'Fixed Order'}</span>
+                      <div className="mt-3 space-y-3 text-sm">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                          <span className="text-muted-foreground">Test Name</span>
+                          <span className="font-semibold text-foreground text-left sm:text-right">{testInfo?.testName || 'Practice Test'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                          <span className="text-muted-foreground">Section Filter</span>
+                          <span className="font-semibold text-foreground text-left sm:text-right">{availableSubjects.length > 1 ? 'Enabled' : 'Single Subject'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                          <span className="text-muted-foreground">Question Palette</span>
+                          <span className="font-semibold text-foreground text-left sm:text-right">Visible</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                          <span className="text-muted-foreground">Question Order</span>
+                          <span className="font-semibold text-foreground text-left sm:text-right">{testInfo?.shuffleQuestions ? 'Randomized' : 'Fixed'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                          <span className="text-muted-foreground">Option Order</span>
+                          <span className="font-semibold text-foreground text-left sm:text-right">{testInfo?.shuffleOptions ? 'Randomized' : 'Fixed'}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
