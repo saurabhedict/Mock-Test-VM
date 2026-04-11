@@ -100,6 +100,38 @@ export const mergeExamCatalog = (dynamicExams: DynamicExam[] = []): ExamCatalogI
   return dynamicExams.map(mapDynamicExamToCatalog);
 };
 
+const getAvailabilityPriority = (availabilityStatus?: ExamAvailabilityStatus) => {
+  const normalized = normalizeExamAvailabilityStatus(availabilityStatus);
+
+  if (normalized === "available") return 0;
+  if (normalized === "coming_soon") return 1;
+  return 2;
+};
+
+export const sortExamsForDisplay = <T extends { examId: string; availabilityStatus?: ExamAvailabilityStatus }>(
+  exams: T[],
+  preferredExamId?: string,
+): T[] => {
+  const withIndex = exams.map((exam, index) => ({ exam, index }));
+  const preferredExam = preferredExamId ? withIndex.find(({ exam }) => exam.examId === preferredExamId)?.exam : undefined;
+
+  const remaining = withIndex
+    .filter(({ exam }) => exam.examId !== preferredExamId)
+    .sort((left, right) => {
+      const rankDifference =
+        getAvailabilityPriority(left.exam.availabilityStatus) - getAvailabilityPriority(right.exam.availabilityStatus);
+
+      if (rankDifference !== 0) {
+        return rankDifference;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ exam }) => exam);
+
+  return preferredExam ? [preferredExam, ...remaining] : remaining;
+};
+
 export const findExamInCatalog = (
   examId: string,
   dynamicExams: DynamicExam[] = []

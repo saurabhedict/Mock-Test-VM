@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "@/services/api";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableHeader, TableRow, TableCell, TableHead } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +79,8 @@ const TestManager = () => {
   const [editingShuffleQuestions, setEditingShuffleQuestions] = useState(false);
   const [editingShuffleOptions, setEditingShuffleOptions] = useState(false);
   const [savingTestId, setSavingTestId] = useState<string | null>(null);
+  const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState<"publish" | "unpublish" | "delete" | null>(null);
   const examCatalog = mergeExamCatalog(exams);
 
   useEffect(() => {
@@ -90,6 +93,10 @@ const TestManager = () => {
       hydrateTestForm(examCatalog[0].examId);
     }
   }, [examCatalog, newTest.exam]);
+
+  useEffect(() => {
+    setSelectedTestIds((current) => current.filter((id) => tests.some((test) => test._id === id)));
+  }, [tests]);
 
   const fetchTests = async () => {
     try {
@@ -286,7 +293,7 @@ const TestManager = () => {
 
     try {
       const { data } = await api.post("/admin/tests", newTest);
-      setTests([data, ...tests]);
+      setTests((current) => [data, ...current]);
       setNewTest((prev) => ({
         ...prev,
         title: "",
@@ -304,7 +311,7 @@ const TestManager = () => {
   const togglePublish = async (id: string, current: boolean) => {
     try {
       await api.put(`/admin/tests/${id}/publish`, { isPublished: !current });
-      setTests(tests.map((t) => (t._id === id ? { ...t, isPublished: !current } : t)));
+      setTests((items) => items.map((t) => (t._id === id ? { ...t, isPublished: !current } : t)));
     } catch (error) {
       toast({ title: "Update failed", variant: "destructive" });
     }
@@ -314,9 +321,88 @@ const TestManager = () => {
     if (!confirm("Are you sure? All questions in this test will be deleted.")) return;
     try {
       await api.delete(`/admin/tests/${id}`);
-      setTests(tests.filter((t) => t._id !== id));
+      setTests((items) => items.filter((t) => t._id !== id));
+      setSelectedTestIds((current) => current.filter((testId) => testId !== id));
     } catch (error) {
       toast({ title: "Delete failed", variant: "destructive" });
+    }
+  };
+
+  const toggleTestSelection = (testId: string) => {
+    setSelectedTestIds((current) =>
+      current.includes(testId) ? current.filter((id) => id !== testId) : [...current, testId]
+    );
+  };
+
+  const toggleSelectAllTests = (checked: boolean | "indeterminate") => {
+    if (checked === true) {
+      setSelectedTestIds(tests.map((test) => test._id));
+      return;
+    }
+
+    setSelectedTestIds([]);
+  };
+
+  const toggleExamGroupSelection = (examTests: Test[], checked: boolean | "indeterminate") => {
+    const examTestIds = examTests.map((test) => test._id);
+
+    setSelectedTestIds((current) => {
+      if (checked === true) {
+        return [...new Set([...current, ...examTestIds])];
+      }
+
+      return current.filter((id) => !examTestIds.includes(id));
+    });
+  };
+
+  const bulkUpdatePublishState = async (isPublished: boolean) => {
+    if (selectedTestIds.length === 0) {
+      return toast({ title: "Select at least one test" });
+    }
+
+    setBulkAction(isPublished ? "publish" : "unpublish");
+    try {
+      await Promise.all(
+        selectedTestIds.map((id) =>
+          api.put(`/admin/tests/${id}/publish`, { isPublished }),
+        ),
+      );
+      setTests((items) =>
+        items.map((test) =>
+          selectedTestIds.includes(test._id) ? { ...test, isPublished } : test
+        ),
+      );
+      toast({
+        title: isPublished
+          ? `${selectedTestIds.length} test(s) published`
+          : `${selectedTestIds.length} test(s) unpublished`,
+      });
+    } catch (error) {
+      toast({ title: "Bulk update failed", variant: "destructive" });
+    } finally {
+      setBulkAction(null);
+    }
+  };
+
+  const bulkDeleteTests = async () => {
+    if (selectedTestIds.length === 0) {
+      return toast({ title: "Select at least one test" });
+    }
+
+    if (!confirm(`Delete ${selectedTestIds.length} selected test(s)? All their questions will also be deleted.`)) {
+      return;
+    }
+
+    setBulkAction("delete");
+    try {
+      await Promise.all(selectedTestIds.map((id) => api.delete(`/admin/tests/${id}`)));
+      setTests((items) => items.filter((test) => !selectedTestIds.includes(test._id)));
+      setSelectedTestIds([]);
+      toast({ title: `${selectedTestIds.length} test(s) deleted successfully` });
+    } catch (error) {
+      toast({ title: "Bulk delete failed", variant: "destructive" });
+    } finally {
+      setBulkAction(null);
     }
   };
 
@@ -370,6 +456,8 @@ const TestManager = () => {
     acc[exam].push(test);
     return acc;
   }, {} as Record<string, Test[]>);
+  const allTestsSelected = tests.length > 0 && tests.every((test) => selectedTestIds.includes(test._id));
+  const someTestsSelected = selectedTestIds.length > 0 && !allTestsSelected;
 
   return (
     <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-500">
@@ -690,6 +778,66 @@ const TestManager = () => {
         </CardContent>
       </Card>
 
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              checked={allTestsSelected ? true : someTestsSelected ? "indeterminate" : false}
+              onCheckedChange={toggleSelectAllTests}
+              aria-label="Select all tests"
+            />
+            <div>
+              <h2 className="text-lg font-semibold">Bulk Test Actions</h2>
+              <p className="text-sm text-muted-foreground">
+                {selectedTestIds.length > 0
+                  ? `${selectedTestIds.length} test(s) selected`
+                  : "Use the checkboxes below to select tests for bulk actions."}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void bulkUpdatePublishState(true)}
+              disabled={selectedTestIds.length === 0 || bulkAction !== null}
+            >
+              Publish Selected
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void bulkUpdatePublishState(false)}
+              disabled={selectedTestIds.length === 0 || bulkAction !== null}
+            >
+              Unpublish Selected
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => void bulkDeleteTests()}
+              disabled={selectedTestIds.length === 0 || bulkAction !== null}
+            >
+              Delete Selected
+            </Button>
+            {selectedTestIds.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedTestIds([])}
+                disabled={bulkAction !== null}
+              >
+                Clear Selection
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="space-y-8">
                 {Object.entries(groupedByExam).length > 0 ? Object.entries(groupedByExam).map(([examKey, examTests]) => (
           <div key={examKey} className="space-y-4">
@@ -704,6 +852,19 @@ const TestManager = () => {
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={
+                          examTests.every((test) => selectedTestIds.includes(test._id))
+                            ? true
+                            : examTests.some((test) => selectedTestIds.includes(test._id))
+                              ? "indeterminate"
+                              : false
+                        }
+                        onCheckedChange={(checked) => toggleExamGroupSelection(examTests, checked)}
+                        aria-label={`Select all ${examKey} tests`}
+                      />
+                    </TableHead>
                     <TableHead className="w-[30%]">Test Title</TableHead>
                     <TableHead>Category / Subject</TableHead>
                     <TableHead>Questions</TableHead>
@@ -714,6 +875,13 @@ const TestManager = () => {
                 <TableBody>
                   {examTests.map((test) => (
                     <TableRow key={test._id} className="hover:bg-accent/5">
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedTestIds.includes(test._id)}
+                          onCheckedChange={() => toggleTestSelection(test._id)}
+                          aria-label={`Select ${test.title}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-semibold">{test.title}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-2">

@@ -10,18 +10,14 @@ import {
   normalizeExamAvailabilityStatus,
 } from '@/lib/examAvailability';
 import { useExams } from '@/hooks/useExams';
-import { mergeExamCatalog, type DynamicExam } from '@/lib/examCatalog';
+import { mergeExamCatalog, sortExamsForDisplay, type DynamicExam } from '@/lib/examCatalog';
 
 export default function ExamCardsSection() {
   const { user } = useAuth();
   const { exams: dynamicExams } = useExams();
 
   const exams = useMemo(() => {
-    const merged = mergeExamCatalog(dynamicExams as DynamicExam[]);
-    if (!user?.examPref) return merged;
-    const preferred = merged.find((exam) => exam.examId === user.examPref);
-    if (!preferred) return merged;
-    return [preferred, ...merged.filter((exam) => exam.examId !== user.examPref)];
+    return sortExamsForDisplay(mergeExamCatalog(dynamicExams as DynamicExam[]), user?.examPref);
   }, [dynamicExams, user?.examPref]);
 
   return (
