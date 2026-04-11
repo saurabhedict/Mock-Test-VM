@@ -183,7 +183,8 @@ export default function ResultsPage() {
     return () => {
       cancelled = true;
     };
-  }, [result, testId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testId, result?.attemptId]);
 
   if (!result) {
     return (
