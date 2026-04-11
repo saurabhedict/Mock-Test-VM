@@ -8,11 +8,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { readApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import FormattedContent from "@/components/FormattedContent";
 
 type ChatQuestion = {
   question: string;
   options: Array<string | { text: string; imageUrl?: string; originalIndex?: number }>;
   explanation?: string;
+  questionImage?: string;
+  explanationImage?: string;
   questionType?: string;
   correctAnswer?: number;
   correctAnswers?: number[];
@@ -105,7 +108,7 @@ const getQuestionResult = (question: ChatQuestion, answer: unknown) => {
 };
 
 const extractReferencedQuestionIndex = (message: string, totalQuestions: number) => {
-  const match = message.match(/\b(?:question|q)\s*(\d+)\b/i);
+  const match = message.match(/\b(?:question|ques|q|qs)\s*#?\s*(\d+)\b/i);
   if (!match) return null;
   const questionNumber = Number(match[1]);
   if (!Number.isInteger(questionNumber) || questionNumber < 1 || questionNumber > totalQuestions) return null;
@@ -189,6 +192,8 @@ export default function StudentAiChatPanel({
           ...(referencedQuestion
             ? {
                 question: referencedQuestion.question,
+                questionImage: referencedQuestion.questionImage || "",
+                explanationImage: referencedQuestion.explanationImage || "",
                 options: referencedQuestion.options,
                 selectedAnswer: formatSingleAnswer(referencedQuestion, referencedAnswer),
                 correctAnswer: formatCorrectAnswer(referencedQuestion),
@@ -218,111 +223,124 @@ export default function StudentAiChatPanel({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6"
+      className="rounded-3xl border border-[#EAE4DE] p-6"
+      style={{ background: "linear-gradient(180deg, #FFFFFF, #FFF9F5)", boxShadow: "0 4px 24px -6px rgba(30,20,12,0.08)" }}
     >
+      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="max-w-3xl">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-white/65">
-            <Sparkles className="h-3.5 w-3.5 text-[#00e5ff]" />
-            AI Help
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#E8722A]/20 bg-[#FFF0E5] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-[#E8722A]">
+            <Sparkles className="h-3.5 w-3.5" />
+            VidyaSaathi
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
-              <Bot className="h-5 w-5 text-[#00e5ff]" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl shadow-md" style={{ background: "linear-gradient(135deg, #E8722A, #D4621E)" }}>
+              <Bot className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-display font-semibold text-white">Ask AI about this test</h2>
-              <p className="mt-1 text-sm leading-6 text-white/65">
+              <h2 className="text-2xl font-display font-semibold text-[#231C17]">VidyaSaathi</h2>
+              <p className="mt-1 text-sm leading-6 text-[#7A716A]">
                 Ask personal doubts, question-wise doubts, shortcuts, or what to study next. The AI already has your test answers, correct answers, explanations, and timing.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/62">
+        <div className="rounded-2xl border border-[#EAE4DE] bg-[#F3EDE7] px-4 py-3 text-sm font-medium text-[#231C17]/70">
           {testTitle || "Practice Test"} • {questions.length} questions
         </div>
       </div>
 
+      {/* Quick Prompts */}
       <div className="mt-5 flex flex-wrap gap-2">
         {activePrompts.map((suggestion) => (
-          <Button
+          <button
             key={suggestion}
             type="button"
-            variant="outline"
-            size="sm"
-            className="h-auto rounded-2xl border-white/10 bg-white/[0.04] px-3 py-2 text-left text-xs leading-5 text-white/78 hover:bg-white/[0.08] hover:text-white"
+            className="h-auto rounded-full border border-[#EAE4DE] bg-[#F3EDE7]/60 px-4 py-2 text-left text-xs leading-5 text-[#231C17]/70 hover:border-[#E8722A]/30 hover:bg-[#FFF0E5] hover:text-[#E8722A] transition-colors disabled:opacity-50"
             onClick={() => void sendMessage(suggestion)}
             disabled={submitting}
           >
             {suggestion}
-          </Button>
+          </button>
         ))}
       </div>
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-[28px] border border-white/10 bg-black/20 p-4">
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Conversation</div>
-          <ScrollArea className="h-[23rem] pr-2">
-            <div className="space-y-3">
-              {messages.length === 0 && !submitting ? (
-                <div className="rounded-[22px] border border-dashed border-white/12 bg-white/[0.04] p-4 text-sm leading-7 text-white/58">
-                  Try asking something like <span className="text-[#9cecff]">"Explain question 12"</span> or{" "}
-                  <span className="text-[#9cecff]">"What are my weak areas?"</span>
-                </div>
-              ) : null}
+      {/* Chat Area */}
+      <div className="mt-6 rounded-2xl border border-[#EAE4DE] bg-[#FAF5F0] p-5">
+        {/* Messages area */}
+        <ScrollArea className="h-[26rem] pr-2">
+          <div className="space-y-3">
+            {messages.length === 0 && !submitting ? (
+              <div className="rounded-2xl border border-dashed border-[#EAE4DE] bg-white p-4 text-sm leading-7 text-[#7A716A]">
+                Try asking something like <span className="font-medium text-[#E8722A]">"Explain question 12"</span> or{" "}
+                <span className="font-medium text-[#E8722A]">"What are my weak areas?"</span>
+              </div>
+            ) : null}
 
-              {messages.map((message, index) => (
-                <div
-                  key={`${message.role}-${index}`}
-                  className={cn(
-                    "max-w-[90%] rounded-[22px] px-4 py-3 text-sm leading-7",
-                    message.role === "assistant"
-                      ? "border border-white/10 bg-white/[0.05] text-white/82"
-                      : "ml-auto border border-[#00e5ff]/18 bg-[#00e5ff]/10 text-white",
-                  )}
-                >
-                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">
-                    {message.role === "assistant" ? "AI" : "You"}
-                  </div>
+            {messages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}`}
+                className={cn(
+                  "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-7",
+                  message.role === "assistant"
+                    ? "border border-[#EAE4DE] bg-white text-[#231C17] shadow-sm"
+                    : "ml-auto border border-[#E8722A]/20 bg-[#FFF0E5] text-[#231C17]",
+                )}
+              >
+                <div className={cn(
+                  "mb-1 text-[10px] font-semibold uppercase tracking-[0.22em]",
+                  message.role === "assistant" ? "text-[#E8722A]" : "text-[#231C17]/45",
+                )}>
+                  {message.role === "assistant" ? "VidyaSaathi" : "You"}
+                </div>
+                {message.role === "assistant" ? (
+                  <FormattedContent html={message.content} className="text-sm text-current whitespace-pre-wrap" />
+                ) : (
                   <div className="whitespace-pre-wrap">{message.content}</div>
-                </div>
-              ))}
+                )}
+              </div>
+            ))}
 
-              {submitting ? (
-                <div className="max-w-[75%] rounded-[22px] border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white/75">
-                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">AI</div>
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-[#00e5ff]" />
-                    Thinking...
-                  </div>
+            {submitting ? (
+              <div className="max-w-[75%] rounded-2xl border border-[#EAE4DE] bg-white px-4 py-3 text-sm text-[#231C17]/70 shadow-sm">
+                <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#E8722A]">VidyaSaathi</div>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#E8722A]" />
+                  Thinking...
                 </div>
-              ) : null}
-            </div>
-          </ScrollArea>
-        </div>
+              </div>
+            ) : null}
+          </div>
+        </ScrollArea>
 
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-4">
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Ask Your Doubt</div>
+        {/* Divider */}
+        <div className="my-4 border-t border-[#EAE4DE]" />
+
+        {/* Input area */}
+        <div className="flex items-end gap-3">
           <Textarea
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="Ask anything about your performance or mention a question number, for example: Explain question 7 simply."
-            className="min-h-48 rounded-[22px] border-white/10 bg-[#0d1017]/90 px-4 py-4 text-white placeholder:text-white/35 focus-visible:ring-[#00e5ff]/35"
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                if (prompt.trim() && !submitting) void sendMessage(prompt);
+              }
+            }}
+            placeholder="Ask anything about your performance or mention a question number..."
+            className="min-h-[52px] max-h-32 flex-1 resize-none rounded-2xl border-[#EAE4DE] bg-white px-4 py-3 text-sm text-[#231C17] placeholder:text-[#7A716A]/60 focus-visible:ring-[#E8722A]/30"
+            rows={1}
           />
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <p className="text-xs leading-5 text-white/45">
-              Ask about mistakes, concepts, speed, weak topics, or exam strategy.
-            </p>
-            <Button
-              onClick={() => void sendMessage(prompt)}
-              disabled={submitting || !prompt.trim()}
-              className="rounded-2xl bg-[linear-gradient(135deg,#ff7a18,#ff9b4b_40%,#00e5ff_100%)] px-5 text-white hover:brightness-110"
-            >
-              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              Send
-            </Button>
-          </div>
+          <Button
+            onClick={() => void sendMessage(prompt)}
+            disabled={submitting || !prompt.trim()}
+            className="h-[52px] rounded-2xl px-5 text-white hover:brightness-110 transition-all"
+            style={{ background: "linear-gradient(135deg, #E8722A, #D4621E)", boxShadow: "0 2px 20px -4px rgba(232,114,42,0.3)" }}
+          >
+            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            Send
+          </Button>
         </div>
       </div>
     </motion.section>

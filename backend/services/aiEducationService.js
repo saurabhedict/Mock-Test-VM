@@ -243,10 +243,11 @@ const analyzeTest = async (payload) => {
 };
 
 const buildQuestionContextBlock = (context = {}) => {
-  if (!context?.question && !context?.topic) return null;
+  if (!context?.question && !context?.topic && !context?.questionImage) return null;
 
   return {
     question: stripHtml(context.question || ""),
+    questionImage: context.questionImage || "",
     topic: context.topic || "",
     selectedAnswer: context.selectedAnswer,
     correctAnswer: context.correctAnswer,
@@ -257,6 +258,7 @@ const buildQuestionContextBlock = (context = {}) => {
         }))
       : [],
     explanation: stripHtml(context.explanation || ""),
+    explanationImage: context.explanationImage || "",
   };
 };
 
@@ -270,16 +272,25 @@ const formatQuestionContextForPrompt = (questionContext) => {
       ? questionContext.options.map((option) => `${option.key}. ${option.text}`).join("\n")
       : "No options provided.";
 
-  return [
+  const lines = [
     "Question context:",
     `Topic: ${questionContext.topic || "Unknown"}`,
     `Question: ${questionContext.question || "Not provided"}`,
+  ];
+
+  if (questionContext.questionImage) {
+    lines.push("Note: This question includes an image. Please look at the attached image to understand the full question.");
+  }
+
+  lines.push(
     "Options:",
     optionsBlock,
     `Student selected: ${questionContext.selectedAnswer || "Not answered"}`,
     `Correct answer: ${questionContext.correctAnswer || "Not available"}`,
-    `Official explanation: ${questionContext.explanation || "Not available"}`,
-  ].join("\n");
+    `Official explanation: ${questionContext.explanation || "Not available"}`
+  );
+
+  return lines.join("\n");
 };
 
 const buildExamContextBlock = (context = {}) => {
@@ -384,7 +395,7 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
     schema: chatSchema,
     maxOutputTokens: 850,
     instructions:
-      "You are a patient study assistant for competitive exams. Explain answers simply, correct misconceptions directly, and prefer short paragraphs or bullets. Use the exam context for personal guidance and use the question context when the student asks about a specific question. If the student mentions a question number, answer from that question's data first. Do not mention that you are reading JSON.",
+      "You are a patient study assistant for competitive exams. Explain answers simply, correct misconceptions directly, and prefer short paragraphs or bullets. Use the exam context for personal guidance and use the question context when the student asks about a specific question. If the student mentions a question number, answer from that question's data first. If a question has an attached image, analyze the image to understand the full question before answering. Do not mention that you are reading JSON.",
     input: [
       ...recentMessages,
       {
@@ -400,6 +411,14 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
               formatQuestionContextForPrompt(questionContext),
             ].join("\n"),
           },
+          // Attach question image if present so Gemini can see it
+          ...(questionContext?.questionImage
+            ? [{ type: "image_url", url: questionContext.questionImage }]
+            : []),
+          // Attach explanation image if present
+          ...(questionContext?.explanationImage
+            ? [{ type: "image_url", url: questionContext.explanationImage }]
+            : []),
         ],
       },
     ],

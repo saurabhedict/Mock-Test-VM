@@ -85,11 +85,11 @@ export default function ResultsPage() {
   const raw = localStorage.getItem(`result_${testId}`);
   if (!raw) {
     return (
-      <div className="dark min-h-screen ai-dashboard-shell text-white">
+      <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, hsl(30 60% 98%), hsl(24 90% 94%), hsl(35 70% 96%))' }}>
         <Header />
         <div className="container py-24 text-center">
-          <h1 className="text-3xl font-display font-semibold text-white">No results found</h1>
-          <Link to="/exams" className="mt-4 inline-block text-sm text-[#8defff] hover:text-white">
+          <h1 className="text-3xl font-display font-semibold text-[#231C17]">No results found</h1>
+          <Link to="/exams" className="mt-4 inline-block text-sm text-[#E8722A] hover:text-[#D4621E]">
             Back to Exams
           </Link>
         </div>
@@ -220,52 +220,36 @@ export default function ResultsPage() {
     : [];
 
   return (
-    <div className="dark min-h-screen ai-dashboard-shell text-white">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="ai-grid-bg absolute inset-0 opacity-20" />
-        <div className="ai-noise-overlay absolute inset-0" />
-        <div className="absolute left-[8%] top-[-8%] h-80 w-80 rounded-full bg-[#ff7a18]/14 blur-3xl" />
-        <div className="absolute right-[10%] top-[8%] h-80 w-80 rounded-full bg-[#8a2be2]/14 blur-3xl" />
-        <div className="absolute bottom-[10%] left-[28%] h-96 w-96 rounded-full bg-[#00e5ff]/10 blur-3xl" />
-        {particles.map((particle) => (
-          <motion.span
-            key={`${particle.left}-${particle.top}`}
-            className="absolute h-1.5 w-1.5 rounded-full bg-white/55"
-            style={{ left: particle.left, top: particle.top }}
-            animate={{ y: [0, -20, 0], opacity: [0.2, 0.85, 0.2] }}
-            transition={{ duration: 5.2, repeat: Infinity, delay: particle.delay, ease: 'easeInOut' }}
-          />
-        ))}
-      </div>
-
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, hsl(30 60% 98%), hsl(24 90% 94%), hsl(35 70% 96%))' }}>
       <Header />
 
       <main className="relative z-10">
         <div className="container max-w-7xl py-8 md:py-12">
-          <Link to="/exams" className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/68 hover:text-white">
+          <Link to="/exams" className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#EAE4DE] bg-white px-4 py-2 text-sm text-[#7A716A] hover:text-[#E8722A] hover:border-[#E8722A]/30 transition-colors shadow-sm">
             <ArrowLeft className="h-4 w-4" />
             Back to Exams
           </Link>
 
-          <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="ai-glass-panel rounded-[36px] border border-white/10 px-6 py-7 md:px-8 md:py-9">
+          {/* Hero Section */}
+          <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-[#EAE4DE] px-6 py-7 md:px-8 md:py-9" style={{ background: 'linear-gradient(180deg, #FFFFFF, #FFF9F5)', boxShadow: '0 4px 24px -6px rgba(30,20,12,0.08)' }}>
             <div className="grid gap-6 lg:grid-cols-[1.12fr_0.88fr] lg:items-center">
               <div>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.32em] text-white/70">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#00e5ff] animate-[ai-pulse_1.6s_ease-in-out_infinite]" />
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#E8722A]/20 bg-[#FFF0E5] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.32em] text-[#E8722A]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#E8722A] animate-[ai-pulse_1.6s_ease-in-out_infinite]" />
                   Student AI Analysis
                 </div>
-                <h1 className="text-4xl font-display font-semibold leading-tight text-white md:text-5xl">
+                <h1 className="text-4xl font-display font-semibold leading-tight text-[#231C17] md:text-5xl">
                   Your result is ready
                 </h1>
-                <p className="mt-4 max-w-2xl text-base leading-8 text-white/66 md:text-lg">
+                <p className="mt-4 max-w-2xl text-base leading-8 text-[#7A716A] md:text-lg">
                   Check your score, review your answers, and ask AI any doubt in one simple place.
                 </p>
-                <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white/68">
+                <div className="mt-7 rounded-2xl border border-[#EAE4DE] bg-[#FAF5F0] px-4 py-3 text-sm text-[#7A716A]">
                   The AI box below already knows your test answers, correct answers, explanations, and timing. Just ask your doubt directly.
                 </div>
                 {result.submissionStatus === 'AUTO_SUBMITTED' ? (
-                  <div className="mt-6 rounded-[24px] border border-[#ff7a18]/18 bg-[linear-gradient(135deg,rgba(255,122,24,0.14),rgba(255,255,255,0.04))] px-4 py-4 text-sm text-[#ffd4b0]">
-                    <strong className="font-semibold text-white">Auto-submitted attempt.</strong>{' '}
+                  <div className="mt-6 rounded-3xl border border-[#E8722A]/20 bg-[#FFF0E5] px-4 py-4 text-sm text-[#9A5A2A]">
+                    <strong className="font-semibold text-[#231C17]">Auto-submitted attempt.</strong>{' '}
                     {result.autoSubmitReason || 'A monitored exam rule was triggered during the attempt.'}
                   </div>
                 ) : null}
@@ -278,86 +262,89 @@ export default function ResultsPage() {
                   { label: 'Completion', value: `${completion}%`, sub: `${attempted}/${questions.length} attempted`, icon: Activity },
                   { label: 'Time', value: formatTime(result.timeTaken), sub: `${avgTime}s avg pace`, icon: Clock3 },
                 ].map((item, index) => (
-                  <motion.div key={item.label} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.08 }} className="ai-glass-panel rounded-[28px] border border-white/10 bg-white/[0.05] p-5">
+                  <motion.div key={item.label} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.08 }} className="rounded-3xl border border-[#EAE4DE] bg-white p-5" style={{ boxShadow: '0 2px 12px -4px rgba(30,20,12,0.06)' }}>
                     <div className="mb-4 flex items-center justify-between">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
-                        <item.icon className="h-5 w-5 text-white" />
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#EAE4DE] bg-[#FFF0E5]">
+                        <item.icon className="h-5 w-5 text-[#E8722A]" />
                       </div>
-                      <div className="text-[11px] uppercase tracking-[0.28em] text-white/38">Live</div>
+                      <div className="text-[11px] uppercase tracking-[0.28em] text-[#7A716A]/50">Live</div>
                     </div>
-                    <div className="text-2xl font-display font-semibold text-white">{item.value}</div>
-                    <div className="mt-1 text-xs font-semibold uppercase tracking-[0.22em] text-white/42">{item.label}</div>
-                    <p className="mt-3 text-sm text-white/58">{item.sub}</p>
+                    <div className="text-2xl font-display font-semibold text-[#231C17]">{item.value}</div>
+                    <div className="mt-1 text-xs font-semibold uppercase tracking-[0.22em] text-[#7A716A]/60">{item.label}</div>
+                    <p className="mt-3 text-sm text-[#7A716A]">{item.sub}</p>
                   </motion.div>
                 ))}
               </div>
             </div>
           </motion.section>
 
+          {/* Performance + Subject section */}
           <section className="mt-8 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-            <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+            {/* Performance Summary Card */}
+            <div className="rounded-3xl border border-[#EAE4DE] bg-white p-6" style={{ boxShadow: '0 4px 24px -6px rgba(30,20,12,0.08)' }}>
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Attempt Snapshot</div>
-                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Performance summary</h2>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7A716A]/60">Attempt Snapshot</div>
+                  <h2 className="mt-2 text-2xl font-display font-semibold text-[#231C17]">Performance summary</h2>
                 </div>
-                <Target className="h-5 w-5 text-[#ff7a18]" />
+                <Target className="h-5 w-5 text-[#E8722A]" />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
-                  { label: 'Correct', value: summary.correct, icon: CheckCircle2, tone: 'text-[#8defff]' },
-                  { label: 'Wrong', value: summary.wrong, icon: XCircle, tone: 'text-[#ffb8b8]' },
-                  { label: 'Partial', value: summary.partial, icon: Sparkles, tone: 'text-[#ffc38d]' },
-                  { label: 'Open', value: summary.unanswered, icon: Clock3, tone: 'text-white/72' },
+                  { label: 'Correct', value: summary.correct, icon: CheckCircle2, tone: 'text-[#22C55E]', bgTone: 'bg-[#F0FDF4]' },
+                  { label: 'Wrong', value: summary.wrong, icon: XCircle, tone: 'text-[#EF4444]', bgTone: 'bg-[#FEF2F2]' },
+                  { label: 'Partial', value: summary.partial, icon: Sparkles, tone: 'text-[#E8722A]', bgTone: 'bg-[#FFF0E5]' },
+                  { label: 'Open', value: summary.unanswered, icon: Clock3, tone: 'text-[#7A716A]', bgTone: 'bg-[#F3EDE7]' },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                  <div key={item.label} className={`rounded-2xl border border-[#EAE4DE] ${item.bgTone} p-4`}>
                     <div className="mb-3 flex items-center justify-between">
                       <item.icon className={`h-5 w-5 ${item.tone}`} />
-                      <div className="text-[11px] uppercase tracking-[0.24em] text-white/38">{item.label}</div>
+                      <div className="text-[11px] uppercase tracking-[0.24em] text-[#7A716A]/50">{item.label}</div>
                     </div>
-                    <div className="text-3xl font-display font-semibold text-white">{item.value}</div>
+                    <div className="text-3xl font-display font-semibold text-[#231C17]">{item.value}</div>
                   </div>
                 ))}
               </div>
-              <div className="mt-5 rounded-[24px] border border-white/10 bg-black/20 p-4 text-sm leading-7 text-white/68">
-                <div><strong className="text-white">Accuracy:</strong> {accuracy}%</div>
-                <div><strong className="text-white">Completion:</strong> {completion}%</div>
-                <div><strong className="text-white">Average time per question:</strong> {avgTime}s</div>
+              <div className="mt-5 rounded-2xl border border-[#EAE4DE] bg-[#FAF5F0] p-4 text-sm leading-7 text-[#7A716A]">
+                <div><strong className="text-[#231C17]">Accuracy:</strong> {accuracy}%</div>
+                <div><strong className="text-[#231C17]">Completion:</strong> {completion}%</div>
+                <div><strong className="text-[#231C17]">Average time per question:</strong> {avgTime}s</div>
               </div>
             </div>
 
-            <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+            {/* Subject Performance Card */}
+            <div className="rounded-3xl border border-[#EAE4DE] bg-white p-6" style={{ boxShadow: '0 4px 24px -6px rgba(30,20,12,0.08)' }}>
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Subject Performance</div>
-                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Where you did well and where to improve</h2>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7A716A]/60">Subject Performance</div>
+                  <h2 className="mt-2 text-2xl font-display font-semibold text-[#231C17]">Where you did well and where to improve</h2>
                 </div>
-                <Activity className="h-5 w-5 text-[#00e5ff]" />
+                <Activity className="h-5 w-5 text-[#E8722A]" />
               </div>
               <div className="space-y-4">
                 {reviewState === 'loading' ? (
-                  <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                  <div className="rounded-2xl border border-dashed border-[#EAE4DE] bg-[#FAF5F0] p-6 text-sm text-[#7A716A]">
                     Detailed subject-wise review is loading.
                   </div>
                 ) : reviewState === 'unavailable' ? (
-                  <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                  <div className="rounded-2xl border border-dashed border-[#EAE4DE] bg-[#FAF5F0] p-6 text-sm text-[#7A716A]">
                     Detailed subject-wise review is not available right now. Please refresh once more.
                   </div>
                 ) : subjectPerformance.length > 0 ? subjectPerformance.map((item) => (
-                  <div key={item.subject} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                  <div key={item.subject} className="rounded-2xl border border-[#EAE4DE] bg-[#FAF5F0] p-4">
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div>
-                        <div className="text-sm font-semibold text-white">{item.subject}</div>
-                        <div className="text-xs text-white/48">{item.correct}/{item.total} correct • {item.attempted}/{item.total} attempted</div>
+                        <div className="text-sm font-semibold text-[#231C17]">{item.subject}</div>
+                        <div className="text-xs text-[#7A716A]">{item.correct}/{item.total} correct • {item.attempted}/{item.total} attempted</div>
                       </div>
-                      <div className="text-sm font-semibold text-[#8defff]">{item.accuracy}%</div>
+                      <div className="text-sm font-semibold text-[#E8722A]">{item.accuracy}%</div>
                     </div>
-                    <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
-                      <div className="h-full rounded-full bg-[linear-gradient(90deg,#ff7a18,#8a2be2,#00e5ff)]" style={{ width: `${Math.max(6, Math.min(100, item.accuracy))}%` }} />
+                    <div className="h-2.5 overflow-hidden rounded-full bg-[#EAE4DE]">
+                      <div className="h-full rounded-full" style={{ width: `${Math.max(6, Math.min(100, item.accuracy))}%`, background: 'linear-gradient(90deg, #E8722A, #F4A261)' }} />
                     </div>
                   </div>
                 )) : (
-                  <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                  <div className="rounded-2xl border border-dashed border-[#EAE4DE] bg-[#FAF5F0] p-6 text-sm text-[#7A716A]">
                     Subject-wise performance will appear here when the test includes subject data.
                   </div>
                 )}
@@ -365,6 +352,7 @@ export default function ResultsPage() {
             </div>
           </section>
 
+          {/* AI Chat Section */}
           <section className="mt-8">
             {reviewReady ? (
               <StudentAiChatPanel
@@ -375,24 +363,25 @@ export default function ResultsPage() {
                 perQuestionTimes={result.perQuestionTimes || []}
               />
             ) : (
-              <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">AI Help</div>
-                <h2 className="mt-2 text-2xl font-display font-semibold text-white">Preparing your review data</h2>
-                <p className="mt-3 text-sm leading-7 text-white/65">
+              <div className="rounded-3xl border border-[#EAE4DE] bg-white p-6" style={{ boxShadow: '0 4px 24px -6px rgba(30,20,12,0.08)' }}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7A716A]/60">VidyaSaathi</div>
+                <h2 className="mt-2 text-2xl font-display font-semibold text-[#231C17]">Preparing your review data</h2>
+                <p className="mt-3 text-sm leading-7 text-[#7A716A]">
                   The AI box will unlock as soon as we load your completed paper, answers, explanations, and timing details.
                 </p>
               </div>
             )}
           </section>
 
+          {/* Question Review Section */}
           <section className="mt-8">
-            <div className="ai-glass-panel rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
+            <div className="rounded-3xl border border-[#EAE4DE] bg-white p-6" style={{ boxShadow: '0 4px 24px -6px rgba(30,20,12,0.08)' }}>
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">Answer Review</div>
-                  <h2 className="mt-2 text-2xl font-display font-semibold text-white">Question debrief</h2>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7A716A]/60">Answer Review</div>
+                  <h2 className="mt-2 text-2xl font-display font-semibold text-[#231C17]">Question debrief</h2>
                 </div>
-                <Button variant="outline" className="h-12 rounded-2xl border-white/10 bg-white/[0.04] px-5 text-white hover:bg-white/[0.08] hover:text-white" onClick={() => setShowReview((current) => !current)}>
+                <Button variant="outline" className="h-12 rounded-2xl border-[#EAE4DE] bg-[#FAF5F0] px-5 text-[#231C17] hover:bg-[#FFF0E5] hover:text-[#E8722A] hover:border-[#E8722A]/30 transition-colors" onClick={() => setShowReview((current) => !current)}>
                   {showReview ? 'Hide Review' : 'Show Review'}
                   {showReview ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
                 </Button>
@@ -401,11 +390,11 @@ export default function ResultsPage() {
               {showReview ? (
                 <div className="mt-6 space-y-4">
                   {reviewState === 'loading' ? (
-                    <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                    <div className="rounded-2xl border border-dashed border-[#EAE4DE] bg-[#FAF5F0] p-6 text-sm text-[#7A716A]">
                       Loading your full answer review.
                     </div>
                   ) : reviewState === 'unavailable' ? (
-                    <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] p-6 text-sm text-white/58">
+                    <div className="rounded-2xl border border-dashed border-[#EAE4DE] bg-[#FAF5F0] p-6 text-sm text-[#7A716A]">
                       We could not load the full answer review yet. Please refresh and try again.
                     </div>
                   ) : questions.map((question, index) => {
@@ -415,44 +404,44 @@ export default function ResultsPage() {
                     const scoreInfo = getQuestionScore(question, userAnswer, subjectRules);
 
                     let badge = 'Open';
-                    let badgeClass = 'border-white/10 bg-white/[0.05] text-white/70';
+                    let badgeClass = 'border-[#EAE4DE] bg-[#F3EDE7] text-[#7A716A]';
                     if (!unansweredQuestion && answeredCorrectly) {
                       badge = 'Correct';
-                      badgeClass = 'border-[#00e5ff]/20 bg-[#00e5ff]/10 text-[#9cecff]';
+                      badgeClass = 'border-[#22C55E]/20 bg-[#F0FDF4] text-[#16A34A]';
                     } else if (!unansweredQuestion && scoreInfo.score > 0) {
                       badge = 'Partial';
-                      badgeClass = 'border-[#ff7a18]/20 bg-[#ff7a18]/10 text-[#ffc38d]';
+                      badgeClass = 'border-[#E8722A]/20 bg-[#FFF0E5] text-[#E8722A]';
                     } else if (!unansweredQuestion) {
                       badge = 'Wrong';
-                      badgeClass = 'border-[#ff8f8f]/20 bg-[#ff5a5a]/10 text-[#ffb8b8]';
+                      badgeClass = 'border-[#EF4444]/20 bg-[#FEF2F2] text-[#EF4444]';
                     }
 
                     return (
-                      <div key={index} className="rounded-[28px] border border-white/10 bg-black/20 p-4">
+                      <div key={index} className="rounded-2xl border border-[#EAE4DE] bg-[#FAF5F0] p-4">
                         <button className="w-full text-left" onClick={() => setExpandedQ(expandedQ === index ? null : index)}>
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex items-start gap-4">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-sm font-semibold text-white">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#EAE4DE] bg-white text-sm font-semibold text-[#231C17]">
                                 {index + 1}
                               </div>
                               <div>
                                 <div className={`mb-3 inline-flex rounded-full border px-3 py-1 text-xs font-medium ${badgeClass}`}>{badge}</div>
-                                <FormattedContent html={question.question} className="text-sm leading-7 text-white/82" />
-                                {question.questionImage ? <img src={question.questionImage} alt="Question" className="mt-3 max-h-48 rounded-2xl border border-white/10" /> : null}
+                                <FormattedContent html={question.question} className="text-sm leading-7 text-[#231C17]/82" />
+                                {question.questionImage ? <img src={question.questionImage} alt="Question" className="mt-3 max-h-48 rounded-2xl border border-[#EAE4DE]" /> : null}
                               </div>
                             </div>
-                            {expandedQ === index ? <ChevronUp className="mt-1 h-5 w-5 shrink-0 text-white/48" /> : <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-white/48" />}
+                            {expandedQ === index ? <ChevronUp className="mt-1 h-5 w-5 shrink-0 text-[#7A716A]" /> : <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-[#7A716A]" />}
                           </div>
                         </button>
 
                         {expandedQ === index ? (
                           <div className="mt-5 space-y-4 md:ml-14">
                             {question.questionType === 'written' ? (
-                              <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-white/74">
-                                <div><strong className="text-white">Your answer:</strong> {typeof userAnswer === 'string' && userAnswer.trim() ? userAnswer : 'Not answered'}</div>
+                              <div className="rounded-2xl border border-[#EAE4DE] bg-white p-4 text-sm leading-7 text-[#231C17]/74">
+                                <div><strong className="text-[#231C17]">Your answer:</strong> {typeof userAnswer === 'string' && userAnswer.trim() ? userAnswer : 'Not answered'}</div>
                                 <div className="mt-3">
-                                  <strong className="text-white">Correct answer:</strong>
-                                  {question.writtenAnswer?.trim() ? <FormattedContent html={question.writtenAnswer} className="mt-2 text-sm text-white/82" /> : <span className="ml-2 text-white/48">-</span>}
+                                  <strong className="text-[#231C17]">Correct answer:</strong>
+                                  {question.writtenAnswer?.trim() ? <FormattedContent html={question.writtenAnswer} className="mt-2 text-sm text-[#231C17]/82" /> : <span className="ml-2 text-[#7A716A]">-</span>}
                                 </div>
                               </div>
                             ) : (
@@ -461,19 +450,19 @@ export default function ResultsPage() {
                                   const optionImage = typeof option === 'string' ? null : option.imageUrl;
                                   const isCorrectOption = question.questionType === 'multiple' ? (question.correctAnswers || []).includes(optionIndex) : optionIndex === question.correctAnswer;
                                   const isUserChoice = question.questionType === 'multiple' ? Array.isArray(userAnswer) && userAnswer.includes(optionIndex) : optionIndex === userAnswer;
-                                  const optionClass = isCorrectOption ? 'border-[#00e5ff]/20 bg-[#00e5ff]/10 text-white' : isUserChoice && !answeredCorrectly ? 'border-[#ff8f8f]/20 bg-[#ff5a5a]/10 text-white' : 'border-white/10 bg-white/[0.04] text-white/62';
+                                  const optionClass = isCorrectOption ? 'border-[#22C55E]/30 bg-[#F0FDF4] text-[#231C17]' : isUserChoice && !answeredCorrectly ? 'border-[#EF4444]/30 bg-[#FEF2F2] text-[#231C17]' : 'border-[#EAE4DE] bg-white text-[#231C17]/70';
                                   return (
-                                    <div key={optionIndex} className={`rounded-[22px] border px-4 py-3 ${optionClass}`}>
-                                      <div className="mb-2 font-semibold text-white">{String.fromCharCode(65 + optionIndex)}.</div>
+                                    <div key={optionIndex} className={`rounded-2xl border px-4 py-3 ${optionClass}`}>
+                                      <div className="mb-2 font-semibold text-[#231C17]">{String.fromCharCode(65 + optionIndex)}.</div>
                                       <FormattedContent html={optionText(option)} className="text-sm leading-7 text-current" />
-                                      {optionImage ? <IntrinsicImage src={optionImage} alt="Option" loading="lazy" trimWhitespace className="mt-3 border border-white/10" /> : null}
+                                      {optionImage ? <IntrinsicImage src={optionImage} alt="Option" loading="lazy" trimWhitespace className="mt-3 border border-[#EAE4DE]" /> : null}
                                     </div>
                                   );
                                 })}
                               </div>
                             )}
 
-                            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3 text-xs text-white/56">
+                            <div className="rounded-2xl border border-[#EAE4DE] bg-[#F3EDE7] px-4 py-3 text-xs text-[#7A716A]">
                               {(() => {
                                 const { positiveMarks, negativeMarks } = getQuestionMarking(question, subjectRules);
                                 const questionScore = getQuestionScore(question, userAnswer, subjectRules);
@@ -482,10 +471,10 @@ export default function ResultsPage() {
                               })()}
                             </div>
 
-                            <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,122,24,0.06))] p-4">
-                              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">Official Explanation</div>
-                              <FormattedContent html={question.explanation} className="text-sm leading-7 text-white/78" />
-                              {question.explanationImage ? <img src={question.explanationImage} alt="Solution explanation" className="mt-4 max-h-80 w-auto rounded-2xl border border-white/10 bg-white" /> : null}
+                            <div className="rounded-2xl border border-[#EAE4DE] bg-[#FFF0E5]/50 p-4">
+                              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#E8722A]">Official Explanation</div>
+                              <FormattedContent html={question.explanation} className="text-sm leading-7 text-[#231C17]/78" />
+                              {question.explanationImage ? <img src={question.explanationImage} alt="Solution explanation" className="mt-4 max-h-80 w-auto rounded-2xl border border-[#EAE4DE] bg-white" /> : null}
                             </div>
                           </div>
                         ) : null}
