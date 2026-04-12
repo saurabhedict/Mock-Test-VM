@@ -379,8 +379,8 @@ export default function TestInterfacePage() {
           subject: q.subject,
           explanation: q.explanation || '',
           explanationImage: q.explanationImage,
-          marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.marksPerQuestion ?? 1),
-          negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.negativeMarksPerQuestion ?? 0),
+          marksPerQuestion: (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.marksPerQuestion) ?? q.marksPerQuestion ?? 1,
+          negativeMarksPerQuestion: (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.negativeMarksPerQuestion) ?? q.negativeMarksPerQuestion ?? 0,
           multipleCorrectScoringMode: q.multipleCorrectScoringMode || 'full_only',
         }));
         const randomizationConfig: TestRandomizationConfig = {
@@ -667,8 +667,8 @@ export default function TestInterfacePage() {
         const predefined = predefinedSubjects.find((s) => isSameSubject(s.name, subjName));
         subjectMap.set(subjName, {
           name: subjName,
-          marksPerQuestion: question.marksPerQuestion ?? predefined?.marksPerQuestion ?? 1,
-          negativeMarksPerQuestion: question.negativeMarksPerQuestion ?? predefined?.negativeMarksPerQuestion ?? 0,
+          marksPerQuestion: predefined?.marksPerQuestion ?? question.marksPerQuestion ?? 1,
+          negativeMarksPerQuestion: predefined?.negativeMarksPerQuestion ?? question.negativeMarksPerQuestion ?? 0,
         });
       }
     });

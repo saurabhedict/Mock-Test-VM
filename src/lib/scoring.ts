@@ -187,8 +187,8 @@ export const getQuestionMarking = (
   const subjectRule = subjects.find((subject) => isSameSubject(subject.name, question.subject));
 
   return {
-    positiveMarks: Number(question.marksPerQuestion ?? subjectRule?.marksPerQuestion ?? 1),
-    negativeMarks: Number(question.negativeMarksPerQuestion ?? subjectRule?.negativeMarksPerQuestion ?? 0),
+    positiveMarks: Number(subjectRule?.marksPerQuestion ?? question.marksPerQuestion ?? 1),
+    negativeMarks: Number(subjectRule?.negativeMarksPerQuestion ?? question.negativeMarksPerQuestion ?? 0),
   };
 };
 
