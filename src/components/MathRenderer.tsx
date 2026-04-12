@@ -4,6 +4,8 @@ import renderMathInElement from "katex/contrib/auto-render";
 import "katex/dist/katex.min.css";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { normalizeAiResponse } from "@/lib/aiContent";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -276,7 +278,7 @@ export default function MathRenderer({ content = "", className }: MathRendererPr
 
   return (
     <div ref={contentRef} className={cn("math-renderer text-current", className)}>
-      <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
+      <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
         {normalizedContent}
       </ReactMarkdown>
     </div>

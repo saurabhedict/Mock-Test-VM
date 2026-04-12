@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import api from '@/services/api';
-import { isAnswered, type AnswerValue, type ExamSubjectMarkingRule, type MultipleCorrectScoringMode } from '@/lib/scoring';
+import { isAnswered, isSameSubject, type AnswerValue, type ExamSubjectMarkingRule, type MultipleCorrectScoringMode } from '@/lib/scoring';
 import {
   buildOriginalAnswersPayload,
   buildOriginalQuestionTimesPayload,
@@ -379,8 +379,8 @@ export default function TestInterfacePage() {
           subject: q.subject,
           explanation: q.explanation || '',
           explanationImage: q.explanationImage,
-          marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => subject.name?.trim().toLowerCase() === q.subject?.trim().toLowerCase())?.marksPerQuestion ?? 1),
-          negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => subject.name?.trim().toLowerCase() === q.subject?.trim().toLowerCase())?.negativeMarksPerQuestion ?? 0),
+          marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.marksPerQuestion ?? 1),
+          negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.negativeMarksPerQuestion ?? 0),
           multipleCorrectScoringMode: q.multipleCorrectScoringMode || 'full_only',
         }));
         const randomizationConfig: TestRandomizationConfig = {
@@ -664,7 +664,7 @@ export default function TestInterfacePage() {
     questions.forEach((question) => {
       const subjName = question.subject || 'General';
       if (!subjectMap.has(subjName)) {
-        const predefined = predefinedSubjects.find((s) => s.name?.trim().toLowerCase() === subjName.trim().toLowerCase());
+        const predefined = predefinedSubjects.find((s) => isSameSubject(s.name, subjName));
         subjectMap.set(subjName, {
           name: subjName,
           marksPerQuestion: question.marksPerQuestion ?? predefined?.marksPerQuestion ?? 1,
