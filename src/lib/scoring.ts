@@ -174,7 +174,9 @@ export const getQuestionMarking = (
   question: QuestionMarkingRule,
   subjects: ExamSubjectMarkingRule[] = [],
 ) => {
-  const subjectRule = subjects.find((subject) => subject.name === question.subject);
+  const subjectRule = subjects.find(
+    (subject) => subject.name?.trim().toLowerCase() === question.subject?.trim().toLowerCase()
+  );
 
   return {
     positiveMarks: Number(question.marksPerQuestion ?? subjectRule?.marksPerQuestion ?? 1),

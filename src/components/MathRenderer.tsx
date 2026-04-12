@@ -258,6 +258,7 @@ export default function MathRenderer({ content = "", className }: MathRendererPr
       renderMathInElement(container, {
         delimiters: [
           { left: "$$", right: "$$", display: true },
+          { left: "\\[", right: "\\]", display: true },
           { left: "$", right: "$", display: false },
           { left: "\\(", right: "\\)", display: false },
         ],

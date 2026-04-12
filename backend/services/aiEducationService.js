@@ -464,6 +464,26 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
     chatSession = await AIChatSession.findOne({ userId, sessionId: resolvedSessionId });
   }
 
+  // Fetch basic overall student analytics if the student asks general questions, but don't fail if error
+  let globalAnalysisBlock = "";
+  if (memory && userId) {
+    try {
+      const attempts = await TestAttempt.find({ userId, status: "COMPLETED" }).lean();
+      if (attempts.length > 0) {
+        const { computeStudentAnalytics } = require("./learningAnalyticsService");
+        const analytics = computeStudentAnalytics(attempts);
+        globalAnalysisBlock = [
+          "Global Student Analytics:",
+          `Overall Average Accuracy: ${analytics.averageAccuracy}%`,
+          `Strong Topics: ${analytics.strongTopics.join(", ") || "None yet"}`,
+          `Weak Topics: ${analytics.weakTopics.join(", ") || "None yet"}`
+        ].join("\n");
+      }
+    } catch (e) {
+      console.warn("Could not fetch global analytics for chat context", e);
+    }
+  }
+
   const recentMessages = (chatSession?.messages || []).slice(-8).map((item) => ({
     role: item.role,
     content: [
@@ -494,6 +514,8 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
             type: "input_text",
             text: [
               `Student message: ${message.trim()}`,
+              "",
+              globalAnalysisBlock,
               "",
               formatExamContextForPrompt(examContext),
               "",

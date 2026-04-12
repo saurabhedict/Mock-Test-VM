@@ -379,8 +379,8 @@ export default function TestInterfacePage() {
           subject: q.subject,
           explanation: q.explanation || '',
           explanationImage: q.explanationImage,
-          marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => subject.name === q.subject)?.marksPerQuestion ?? 1),
-          negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => subject.name === q.subject)?.negativeMarksPerQuestion ?? 0),
+          marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => subject.name?.trim().toLowerCase() === q.subject?.trim().toLowerCase())?.marksPerQuestion ?? 1),
+          negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => subject.name?.trim().toLowerCase() === q.subject?.trim().toLowerCase())?.negativeMarksPerQuestion ?? 0),
           multipleCorrectScoringMode: q.multipleCorrectScoringMode || 'full_only',
         }));
         const randomizationConfig: TestRandomizationConfig = {
@@ -659,12 +659,12 @@ export default function TestInterfacePage() {
 
   const markingRows = useMemo(() => {
     const subjectMap = new Map<string, ExamSubjectMarkingRule>();
-    const predefinedSubjects = new Map(testInfo?.subjects?.map((s) => [s.name, s]));
+    const predefinedSubjects = testInfo?.subjects || [];
     
     questions.forEach((question) => {
       const subjName = question.subject || 'General';
       if (!subjectMap.has(subjName)) {
-        const predefined = predefinedSubjects.get(subjName);
+        const predefined = predefinedSubjects.find((s) => s.name?.trim().toLowerCase() === subjName.trim().toLowerCase());
         subjectMap.set(subjName, {
           name: subjName,
           marksPerQuestion: question.marksPerQuestion ?? predefined?.marksPerQuestion ?? 1,
