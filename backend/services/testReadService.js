@@ -61,7 +61,9 @@ const loadExamBySlug = async (slug) => {
   }
 
   return getOrSetCachedValue(`exam:${slug}`, EXAM_CACHE_TTL_MS, async () => {
-    return Exam.findOne({ slug })
+    const isObjectId = mongoose.Types.ObjectId.isValid(slug);
+    const query = isObjectId ? { $or: [{ slug }, { _id: slug }] } : { slug };
+    return Exam.findOne(query)
       .select(EXAM_SELECT)
       .lean();
   });

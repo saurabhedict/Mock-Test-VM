@@ -379,8 +379,8 @@ export default function TestInterfacePage() {
           subject: q.subject,
           explanation: q.explanation || '',
           explanationImage: q.explanationImage,
-          marksPerQuestion: (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.marksPerQuestion) ?? q.marksPerQuestion ?? 1,
-          negativeMarksPerQuestion: (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.negativeMarksPerQuestion) ?? q.negativeMarksPerQuestion ?? 0,
+          marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.marksPerQuestion) ?? 1,
+          negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.negativeMarksPerQuestion) ?? 0,
           multipleCorrectScoringMode: q.multipleCorrectScoringMode || 'full_only',
         }));
         const randomizationConfig: TestRandomizationConfig = {
@@ -672,6 +672,17 @@ export default function TestInterfacePage() {
         });
       }
     });
+
+    predefinedSubjects.forEach((predefined) => {
+      if (!subjectMap.has(predefined.name)) {
+        subjectMap.set(predefined.name, {
+          name: predefined.name,
+          marksPerQuestion: predefined.marksPerQuestion ?? 1,
+          negativeMarksPerQuestion: predefined.negativeMarksPerQuestion ?? 0,
+        });
+      }
+    });
+
     return Array.from(subjectMap.values());
   }, [questions, testInfo?.subjects]);
 

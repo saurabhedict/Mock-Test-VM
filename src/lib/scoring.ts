@@ -30,6 +30,7 @@ export const isSameSubject = (subject1?: string, subject2?: string) => {
   if (norm1 === norm2) return true;
   if (norm1.length > 3 && norm2.includes(norm1)) return true;
   if (norm2.length > 3 && norm1.includes(norm2)) return true;
+  if ((norm1 === "maths" && norm2.startsWith("math")) || (norm2 === "maths" && norm1.startsWith("math"))) return true;
   return false;
 };
 
@@ -187,8 +188,8 @@ export const getQuestionMarking = (
   const subjectRule = subjects.find((subject) => isSameSubject(subject.name, question.subject));
 
   return {
-    positiveMarks: Number(subjectRule?.marksPerQuestion ?? question.marksPerQuestion ?? 1),
-    negativeMarks: Number(subjectRule?.negativeMarksPerQuestion ?? question.negativeMarksPerQuestion ?? 0),
+    positiveMarks: Number(question.marksPerQuestion ?? subjectRule?.marksPerQuestion ?? 1),
+    negativeMarks: Number(question.negativeMarksPerQuestion ?? subjectRule?.negativeMarksPerQuestion ?? 0),
   };
 };
 
