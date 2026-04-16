@@ -12,49 +12,174 @@ enum Role {
   ADMIN
 }
 
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+  AUTO_SUBMITTED
+}
+
 model User {
-  id           String        @id @default(uuid())
-  name         String
-  email        String        @unique
-  password     String
-  role         Role          @default(STUDENT)
-  attempts     TestAttempt[]
-  createdAt    DateTime      @default(now())
+  id              String           @id @default(uuid())
+  name            String
+  email           String           @unique
+  password        String
+  role            Role             @default(STUDENT)
+  attempts        Attempt[]
+  studentHistory  StudentHistory[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Subject {
+  id         String   @id @default(uuid())
+  name       String
+  code       String   @unique
+  topics     Topic[]
+  questions  Question[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Topic {
+  id         String   @id @default(uuid())
+  name       String
+  code       String
+  subjectId  String
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions  Question[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([subjectId, code])
+  @@index([subjectId])
+}
+
+model Exam {
+  id         String   @id @default(uuid())
+  slug       String   @unique
+  name       String
+  shortName  String
+  tests      Test[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Test {
-  id              String        @id @default(uuid())
+  id              String                @id @default(uuid())
+  examId          String
   title           String
-  subject         String
   durationMinutes Int
   totalMarks      Int
-  isPublished     Boolean       @default(false)
-  questions       Question[]
-  attempts        TestAttempt[]
-  createdAt       DateTime      @default(now())
+  isPublished     Boolean               @default(false)
+  exam            Exam                  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  schema          TestSchema?
+  questionMap     TestQuestionMapping[]
+  attempts        Attempt[]
+  history         StudentHistory[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([examId, isPublished])
+}
+
+model TestSchema {
+  id             String   @id @default(uuid())
+  testId         String   @unique
+  schemaJson     Json
+  totalQuestions Int
+  test           Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([testId])
 }
 
 model Question {
-  id                 String   @id @default(uuid())
-  testId             String
-  test               Test     @relation(fields: [testId], references: [id])
-  questionText       String
-  questionImageUrl   String?
-  options            Json     // Array of objects: { "text": "...", "imageUrl": "..." }
-  correctAnswerIndex Int
-  explanation        String?
-  explanationImageUrl String?
+  id              String                @id @default(uuid())
+  subjectId       String
+  topicId         String
+  difficulty      Difficulty
+  questionHTML    String
+  image           String?
+  explanationHTML String?
+  marks           Float                 @default(1)
+  negativeMarks   Float                 @default(0)
+  correctOptionId String
+  subject         Subject               @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  topic           Topic                 @relation(fields: [topicId], references: [id], onDelete: Restrict)
+  options         Option[]
+  testMap         TestQuestionMapping[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([subjectId])
+  @@index([topicId])
+  @@index([difficulty])
+  @@index([subjectId, topicId, difficulty])
 }
 
-model TestAttempt {
-  id               String   @id @default(uuid())
-  userId           String
-  user             User     @relation(fields: [userId], references: [id])
-  testId           String
-  test             Test     @relation(fields: [testId], references: [id])
-  score            Int
-  status           String   // "IN_PROGRESS" | "COMPLETED"
-  answersSubmitted Json?    // e.g., {"questionId": "index"}
-  startedAt        DateTime @default(now())
-  completedAt      DateTime?
+model Option {
+  id          String   @id @default(uuid())
+  questionId  String
+  optionId    String
+  text        String
+  image       String?
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, optionId])
+  @@index([questionId])
+}
+
+model TestQuestionMapping {
+  id          String   @id @default(uuid())
+  testId      String
+  questionId  String
+  test        Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([testId, questionId])
+  @@index([testId])
+  @@index([questionId])
+}
+
+model StudentHistory {
+  id                   String   @id @default(uuid())
+  userId               String
+  testId               String
+  attemptedQuestionIds String[]
+  topicStats           Json?
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  test                 Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([userId, testId])
+  @@index([testId])
+}
+
+model Attempt {
+  id              String        @id @default(uuid())
+  userId          String
+  testId          String
+  status          AttemptStatus @default(IN_PROGRESS)
+  score           Float         @default(0)
+  totalMarks      Float         @default(0)
+  answers         Json?
+  startedAt       DateTime      @default(now())
+  completedAt     DateTime?
+  timeTakenSecs   Int           @default(0)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  test            Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId, testId, status])
+  @@index([testId, status])
 }

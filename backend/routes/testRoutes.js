@@ -12,6 +12,8 @@ const {
   getScoringTestBundle,
   getSessionStartSummary,
 } = require("../services/testReadService");
+const { admin } = require("../middleware/authMiddleware");
+const dynamicTestController = require("../controllers/dynamicTestController");
 
 const buildTopicBreakdown = (snapshots = []) =>
   Object.values(
@@ -93,6 +95,10 @@ router.get("/my-attempts", protect, async (req, res) => {
 
 router.post("/submit", protect, async (req, res) => {
   try {
+    if (req.body?.dynamicEngine === true) {
+      return dynamicTestController.submitTest(req, res);
+    }
+
     setPrivateNoStoreHeaders(res);
     const { testId, answers, timeTaken, perQuestionTimes = [], attemptId, status, violationReason } = req.body;
 
@@ -248,6 +254,14 @@ router.post("/session/abandon", protect, async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 });
+
+// Dynamic TEST-scoped engine APIs
+router.post("/schema", protect, admin, dynamicTestController.createTestSchema);
+router.post("/questions", protect, admin, dynamicTestController.addQuestion);
+router.post("/start", protect, dynamicTestController.startTest);
+router.get("/questions/batch", protect, dynamicTestController.fetchQuestionsBatch);
+router.post("/answer/save", protect, dynamicTestController.saveAnswer);
+router.post("/submit-dynamic", protect, dynamicTestController.submitTest);
 
 router.get("/exam/:examId", getTestsByExam);
 router.get("/:id/review", protect, getCompletedTestReview);

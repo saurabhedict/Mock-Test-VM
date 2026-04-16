@@ -59,7 +59,7 @@ const buildTimeAnalysis = (snapshots = [], totalTimeSeconds = 0) => {
   const mapQuestionTiming = (snapshot) => ({
     questionId: snapshot.questionId,
     order: snapshot.order,
-    topic: snapshot.subject,
+    topic: snapshot.topic || snapshot.subject,
     verdict: snapshot.verdict,
     timeSpentSeconds: Number(snapshot.timeSpentSeconds || 0),
     questionPreview: truncateText(snapshot.question, 120),
@@ -114,7 +114,7 @@ const computeAttemptAnalytics = ({
   const snapshots = buildAttemptQuestionSnapshots(questions, answers, exam, perQuestionTimes);
   const attempted = summary.correct + summary.partial + summary.wrong;
   const accuracy = toPercentage(summary.correct + summary.partial * 0.5, Math.max(attempted, 1));
-  const topicPerformance = buildGroupedPerformance(snapshots, (snapshot) => snapshot.subject, "topic");
+  const topicPerformance = buildGroupedPerformance(snapshots, (snapshot) => snapshot.topic || snapshot.subject, "topic");
   const difficultyPerformance = buildGroupedPerformance(
     snapshots,
     (snapshot) => snapshot.difficulty || "unspecified",
@@ -155,7 +155,7 @@ const computeStudentAnalytics = (attempts = []) => {
     (left, right) => new Date(right.completedAt || right.startedAt || 0) - new Date(left.completedAt || left.startedAt || 0)
   )[0];
 
-  const topicPerformance = buildGroupedPerformance(snapshots, (snapshot) => snapshot.subject, "topic");
+  const topicPerformance = buildGroupedPerformance(snapshots, (snapshot) => snapshot.topic || snapshot.subject, "topic");
   const difficultyPerformance = buildGroupedPerformance(
     snapshots,
     (snapshot) => snapshot.difficulty || "unspecified",

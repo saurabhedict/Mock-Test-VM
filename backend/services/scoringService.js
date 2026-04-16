@@ -197,6 +197,7 @@ const buildQuestionSnapshot = (question, index, answer, examOrSubjects, timeSpen
     questionId: String(question._id || question.id || index),
     order: index + 1,
     subject: question.subject || "General",
+    topic: question.topic || question.subject || "General",
     difficulty: question.difficulty || "unspecified",
     questionType,
     question: stripHtml(question.question || ""),
