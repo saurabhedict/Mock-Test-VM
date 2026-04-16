@@ -1,9 +1,17 @@
 const router = require("express").Router();
 const { protect, admin } = require("../middleware/authMiddleware");
-const { getPlans, getPlanById, createPlan, updatePlan, deletePlan } = require("../controllers/planController");
+const {
+  getPlans,
+  getPlansForAdmin,
+  getPlanById,
+  createPlan,
+  updatePlan,
+  deletePlan,
+} = require("../controllers/planController");
 
 // Public
 router.get("/", getPlans);
+router.get("/manage/all", protect, admin, getPlansForAdmin);
 router.get("/:id", getPlanById);
 
 // Admin only

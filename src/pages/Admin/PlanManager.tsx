@@ -12,6 +12,7 @@ import {
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPlanValidityLabel } from "@/lib/planValidity";
+import { useExams } from "@/hooks/useExams";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,8 @@ interface PlanFeature {
 interface Plan {
   _id?: string;
   id: string;
+  examSlugs: string[];
+  isActive: boolean;
   name: string;
   tagline: string;
   target: string;
@@ -63,6 +66,7 @@ interface SectionBlockProps {
 
 interface PlanFormProps {
   initial: Plan | Omit<Plan, "_id">;
+  exams: Array<{ examId: string; shortName: string; examName: string }>;
   onSave: (nextPlan: Plan | Omit<Plan, "_id">) => void;
   onCancel: () => void;
   isSaving: boolean;
@@ -88,7 +92,7 @@ const SECTION_COLORS: Record<string, string> = {
 };
 
 const emptyPlan = (): Omit<Plan, "_id"> => ({
-  id: "", name: "", tagline: "", target: "", price: 0, popular: false, order: 0,
+  id: "", name: "", tagline: "", target: "", price: 0, popular: false, order: 0, examSlugs: [], isActive: true,
   validityMode: "duration", fixedExpiryDate: null, validityValue: 12, validityUnit: "months",
   mockTests: [], counseling: [], benefits: [], howItWorks: [], personas: [], faqs: [],
 });
@@ -209,6 +213,7 @@ function SectionBlock({
 
 function PlanForm({
   initial,
+  exams,
   onSave,
   onCancel,
   isSaving,
@@ -216,6 +221,15 @@ function PlanForm({
 }: PlanFormProps) {
   const [form, setForm] = useState<Plan | Omit<Plan, "_id">>(initial);
   const set = (key: string, val: unknown) => setForm((f) => ({ ...f, [key]: val }));
+  const toggleExam = (examId: string) => {
+    setForm((prev) => {
+      const hasExam = prev.examSlugs.includes(examId);
+      const nextExamSlugs = hasExam
+        ? prev.examSlugs.filter((slug) => slug !== examId)
+        : [...prev.examSlugs, examId];
+      return { ...prev, examSlugs: nextExamSlugs };
+    });
+  };
 
   const sections: SectionKey[] = ["mockTests", "counseling", "benefits", "howItWorks", "personas", "faqs"];
 
@@ -330,6 +344,65 @@ function PlanForm({
               {form.popular ? <Star className="w-4 h-4 fill-amber-400 text-amber-400" /> : <StarOff className="w-4 h-4" />}
               {form.popular ? "Marked as Popular" : "Not Popular"}
             </button>
+          </div>
+
+          <div className="md:col-span-2 rounded-2xl border border-border bg-muted/20 p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                  Plan Visibility
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Deactivated plans are hidden from students but remain editable.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => set("isActive", !form.isActive)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                  form.isActive
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-700"
+                    : "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-700"
+                }`}
+              >
+                {form.isActive ? "Active" : "Inactive"}
+              </button>
+            </div>
+          </div>
+
+          <div className="md:col-span-2 rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                Assign To Exams
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Select one or more exams. Leave empty to show this plan for all exams.
+              </p>
+            </div>
+            {exams.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No active exams found.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {exams.map((exam) => {
+                  const selected = form.examSlugs.includes(exam.examId);
+                  return (
+                    <button
+                      key={exam.examId}
+                      type="button"
+                      onClick={() => toggleExam(exam.examId)}
+                      className={`text-left rounded-xl border px-3 py-2 text-sm transition-colors ${
+                        selected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background text-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      <div className="font-semibold">{exam.shortName || exam.examName}</div>
+                      <div className="text-xs opacity-80">{exam.examId}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-2 rounded-2xl border border-border bg-muted/20 p-4">
@@ -518,6 +591,20 @@ function PlanCard({
         <p className="text-xs font-medium text-primary mb-4">
           {formatPlanValidityLabel(plan)}
         </p>
+        <div className="mb-4 flex flex-wrap gap-2">
+          <span
+            className={`text-[10px] font-semibold px-2 py-1 rounded-full border ${
+              plan.isActive
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-700"
+                : "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-700"
+            }`}
+          >
+            {plan.isActive ? "Active" : "Inactive"}
+          </span>
+          <span className="text-[10px] font-semibold px-2 py-1 rounded-full border border-border bg-muted/40 text-muted-foreground">
+            {plan.examSlugs.length ? `${plan.examSlugs.length} exam(s)` : "All exams"}
+          </span>
+        </div>
 
         {/* Actions */}
         {confirmDelete ? (
@@ -574,6 +661,7 @@ type View = "list" | "edit" | "create";
 
 export default function PlanManager() {
   const { toast } = useToast();
+  const { exams } = useExams();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -583,8 +671,14 @@ export default function PlanManager() {
   const fetchPlans = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/plans");
-      setPlans(data.plans || []);
+      const { data } = await api.get("/plans/manage/all");
+      setPlans(
+        (data.plans || []).map((plan: Plan) => ({
+          ...plan,
+          examSlugs: Array.isArray(plan.examSlugs) ? plan.examSlugs : [],
+          isActive: plan.isActive !== false,
+        }))
+      );
     } catch {
       toast({ title: "Failed to load plans", variant: "destructive" });
     } finally {
@@ -697,6 +791,7 @@ export default function PlanManager() {
 
         <PlanForm
           initial={initial}
+          exams={exams}
           onSave={view === "create" ? handleCreate : handleUpdate}
           onCancel={cancelForm}
           isSaving={isSaving}

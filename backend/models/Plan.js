@@ -9,6 +9,8 @@ const planFeatureSchema = new mongoose.Schema({
 const planSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true, trim: true },
+    examSlugs: { type: [String], default: [] },
+    isActive: { type: Boolean, default: true },
     name: { type: String, required: true, trim: true },
     tagline: { type: String, required: true, trim: true },
     target: { type: String, required: true, trim: true },
@@ -36,5 +38,7 @@ const planSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+planSchema.index({ examSlugs: 1, isActive: 1, order: 1 });
 
 module.exports = mongoose.model("Plan", planSchema);

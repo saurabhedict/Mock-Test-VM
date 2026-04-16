@@ -9,11 +9,13 @@ interface UsePlansResult {
   refetch: () => void;
 }
 
-export function usePlans(): UsePlansResult {
+export function usePlans(examId?: string): UsePlansResult {
   const query = useQuery({
-    queryKey: ["plans"],
+    queryKey: ["plans", examId || "all"],
     queryFn: async () => {
-      const { data } = await api.get("/plans");
+      const { data } = await api.get("/plans", {
+        params: examId ? { exam: examId } : undefined,
+      });
       return data.plans || [];
     },
     staleTime: 5 * 60 * 1000,

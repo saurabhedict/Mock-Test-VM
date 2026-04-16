@@ -1,11 +1,12 @@
 const Plan = require("../models/Plan");
+const Exam = require("../models/Exam");
 const { DEFAULT_VALIDITY, sanitizePlanValidity } = require("../utils/planValidity");
 const { setSharedCacheHeaders } = require("../utils/cacheHeaders");
 const { getOrSetCachedValue, clearCachedValuesByPrefix } = require("../utils/inMemoryCache");
 
 const PLAN_CACHE_TTL_MS = 5 * 60 * 1000;
 
-// Seed data — used only when DB has no plans
+// Seed data - used only when DB has no plans
 const defaultPlans = [
   {
     id: "foundation",
@@ -171,7 +172,36 @@ const defaultPlans = [
 ].map((plan) => ({
   ...DEFAULT_VALIDITY,
   ...plan,
+  examSlugs: [],
+  isActive: true,
 }));
+
+const normalizeExamSlugs = (value) => {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map((slug) => String(slug || "").trim().toLowerCase()).filter(Boolean)));
+};
+
+const getExamQuery = (examParam) => {
+  const normalized = String(examParam || "").trim().toLowerCase();
+  if (!normalized) return null;
+  return { $or: [{ examSlugs: { $size: 0 } }, { examSlugs: normalized }] };
+};
+
+const validateExamSlugs = async (examSlugs = []) => {
+  if (!examSlugs.length) return [];
+
+  const exams = await Exam.find({ slug: { $in: examSlugs } }).select("slug").lean();
+  const existing = new Set(exams.map((exam) => exam.slug));
+  const missing = examSlugs.filter((slug) => !existing.has(slug));
+
+  if (missing.length) {
+    const error = new Error(`Invalid exam slug(s): ${missing.join(", ")}`);
+    error.status = 400;
+    throw error;
+  }
+
+  return examSlugs;
+};
 
 // Seed default plans if DB is empty
 async function seedPlansIfEmpty() {
@@ -182,7 +212,7 @@ async function seedPlansIfEmpty() {
   }
 }
 
-async function ensurePlanValidityDefaults() {
+async function ensurePlanDefaults() {
   await Plan.updateMany(
     { validityMode: { $exists: false } },
     {
@@ -191,6 +221,24 @@ async function ensurePlanValidityDefaults() {
         validityValue: DEFAULT_VALIDITY.validityValue,
         validityUnit: DEFAULT_VALIDITY.validityUnit,
         fixedExpiryDate: DEFAULT_VALIDITY.fixedExpiryDate,
+      },
+    }
+  );
+
+  await Plan.updateMany(
+    { examSlugs: { $exists: false } },
+    {
+      $set: {
+        examSlugs: [],
+      },
+    }
+  );
+
+  await Plan.updateMany(
+    { isActive: { $exists: false } },
+    {
+      $set: {
+        isActive: true,
       },
     }
   );
@@ -203,7 +251,7 @@ const ensurePlansReady = async () => {
     plansReadyPromise = Promise.resolve()
       .then(async () => {
         await seedPlansIfEmpty();
-        await ensurePlanValidityDefaults();
+        await ensurePlanDefaults();
       })
       .catch((error) => {
         plansReadyPromise = null;
@@ -214,28 +262,52 @@ const ensurePlansReady = async () => {
   return plansReadyPromise;
 };
 
-const loadPlans = async () =>
-  getOrSetCachedValue("plans:list", PLAN_CACHE_TTL_MS, async () =>
-    Plan.find()
-      .sort({ order: 1 })
-      .lean()
-  );
+const loadPlans = async ({ exam, includeInactive }) => {
+  const normalizedExam = String(exam || "").trim().toLowerCase();
+  const cacheKey = `plans:list:${normalizedExam || "all"}:${includeInactive ? "all" : "active"}`;
 
-const loadPlanById = async (id) =>
-  getOrSetCachedValue(`plans:id:${id}`, PLAN_CACHE_TTL_MS, async () =>
-    Plan.findOne({ id }).lean()
-  );
+  return getOrSetCachedValue(cacheKey, PLAN_CACHE_TTL_MS, async () => {
+    const query = {};
+
+    if (!includeInactive) {
+      query.isActive = true;
+    }
+
+    const examQuery = getExamQuery(normalizedExam);
+    if (examQuery) {
+      Object.assign(query, examQuery);
+    }
+
+    return Plan.find(query).sort({ order: 1 }).lean();
+  });
+};
+
+const loadPlanById = async (id, exam) => {
+  const normalizedExam = String(exam || "").trim().toLowerCase();
+  const cacheKey = `plans:id:${id}:${normalizedExam || "all"}`;
+
+  return getOrSetCachedValue(cacheKey, PLAN_CACHE_TTL_MS, async () => {
+    const query = { id, isActive: true };
+
+    const examQuery = getExamQuery(normalizedExam);
+    if (examQuery) {
+      Object.assign(query, examQuery);
+    }
+
+    return Plan.findOne(query).lean();
+  });
+};
 
 const clearPlanCaches = () => {
   clearCachedValuesByPrefix("plans:");
 };
 
-// GET /api/plans — public
+// GET /api/plans - public
 exports.getPlans = async (req, res) => {
   try {
     setSharedCacheHeaders(res, { maxAgeSeconds: 300, staleWhileRevalidateSeconds: 3600 });
     await ensurePlansReady();
-    const plans = await loadPlans();
+    const plans = await loadPlans({ exam: req.query.exam, includeInactive: false });
     res.json({ success: true, plans });
   } catch (error) {
     console.error("getPlans error:", error);
@@ -243,12 +315,24 @@ exports.getPlans = async (req, res) => {
   }
 };
 
-// GET /api/plans/:id — public
+// GET /api/plans/manage/all - admin
+exports.getPlansForAdmin = async (req, res) => {
+  try {
+    await ensurePlansReady();
+    const plans = await loadPlans({ exam: req.query.exam, includeInactive: true });
+    res.json({ success: true, plans });
+  } catch (error) {
+    console.error("getPlansForAdmin error:", error);
+    res.status(500).json({ success: false, message: "Server error fetching plans" });
+  }
+};
+
+// GET /api/plans/:id - public
 exports.getPlanById = async (req, res) => {
   try {
     setSharedCacheHeaders(res, { maxAgeSeconds: 300, staleWhileRevalidateSeconds: 3600 });
     await ensurePlansReady();
-    const plan = await loadPlanById(req.params.id);
+    const plan = await loadPlanById(req.params.id, req.query.exam);
     if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
     res.json({ success: true, plan });
   } catch (error) {
@@ -256,21 +340,47 @@ exports.getPlanById = async (req, res) => {
   }
 };
 
-// POST /api/plans — admin
+// POST /api/plans - admin
 exports.createPlan = async (req, res) => {
   try {
-    const { id, name, tagline, target, price, popular, order, mockTests, counseling, benefits, howItWorks, personas, faqs } = req.body;
+    const {
+      id,
+      name,
+      tagline,
+      target,
+      price,
+      popular,
+      order,
+      isActive,
+      examSlugs,
+      mockTests,
+      counseling,
+      benefits,
+      howItWorks,
+      personas,
+      faqs,
+    } = req.body;
+
     if (!id || !name || !tagline || !target || price === undefined) {
       return res.status(400).json({ success: false, message: "id, name, tagline, target, and price are required" });
     }
+
     const existing = await Plan.findOne({ id });
     if (existing) return res.status(409).json({ success: false, message: "A plan with this ID already exists" });
 
+    const normalizedExamSlugs = await validateExamSlugs(normalizeExamSlugs(examSlugs));
     const validity = sanitizePlanValidity(req.body, DEFAULT_VALIDITY);
 
     const plan = await Plan.create({
-      id, name, tagline, target, price, popular: popular || false,
+      id,
+      name,
+      tagline,
+      target,
+      price,
+      popular: popular || false,
       order: order ?? 99,
+      isActive: isActive !== false,
+      examSlugs: normalizedExamSlugs,
       ...validity,
       mockTests: mockTests || [],
       counseling: counseling || [],
@@ -279,24 +389,44 @@ exports.createPlan = async (req, res) => {
       personas: personas || [],
       faqs: faqs || [],
     });
+
     clearPlanCaches();
     res.status(201).json({ success: true, plan });
   } catch (error) {
     console.error("createPlan error:", error);
-    res.status(500).json({ success: false, message: "Server error creating plan" });
+    res.status(error.status || 500).json({ success: false, message: error.message || "Server error creating plan" });
   }
 };
 
-// PUT /api/plans/:id — admin
+// PUT /api/plans/:id - admin
 exports.updatePlan = async (req, res) => {
   try {
     const plan = await Plan.findOne({ id: req.params.id });
     if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
 
-    const fields = ["name", "tagline", "target", "price", "popular", "order", "mockTests", "counseling", "benefits", "howItWorks", "personas", "faqs"];
+    const fields = [
+      "name",
+      "tagline",
+      "target",
+      "price",
+      "popular",
+      "order",
+      "isActive",
+      "mockTests",
+      "counseling",
+      "benefits",
+      "howItWorks",
+      "personas",
+      "faqs",
+    ];
+
     fields.forEach((field) => {
       if (req.body[field] !== undefined) plan[field] = req.body[field];
     });
+
+    if (req.body.examSlugs !== undefined) {
+      plan.examSlugs = await validateExamSlugs(normalizeExamSlugs(req.body.examSlugs));
+    }
 
     // Allow slug rename
     if (req.body.newId && req.body.newId !== plan.id) {
@@ -323,11 +453,11 @@ exports.updatePlan = async (req, res) => {
     res.json({ success: true, plan });
   } catch (error) {
     console.error("updatePlan error:", error);
-    res.status(500).json({ success: false, message: "Server error updating plan" });
+    res.status(error.status || 500).json({ success: false, message: error.message || "Server error updating plan" });
   }
 };
 
-// DELETE /api/plans/:id — admin
+// DELETE /api/plans/:id - admin
 exports.deletePlan = async (req, res) => {
   try {
     const plan = await Plan.findOneAndDelete({ id: req.params.id });

@@ -4,18 +4,33 @@ import { useNavigate } from 'react-router-dom';
 import BuyButton from '@/components/BuyButton';
 import { usePlans } from '@/hooks/usePlans';
 import { formatPlanValidityLabel } from '@/lib/planValidity';
+import { useAuth } from '@/context/AuthContext';
+import { useExams } from '@/hooks/useExams';
+import {
+  getExamSpecificPlanName,
+  resolveCounsellingProcessName,
+  resolveExamLabel,
+} from '@/lib/counsellingContext';
 
 export default function ServicesSection() {
   const navigate = useNavigate();
-  // const { plans } = usePlans();
-  const { plans, loading } = usePlans();
+  const { user } = useAuth();
+  const { exams } = useExams();
+  const selectedExam = user?.examPref || "";
+  const { plans, loading } = usePlans(selectedExam);
+  const examLabel = resolveExamLabel(selectedExam, exams);
+  const processName = resolveCounsellingProcessName(selectedExam);
+  const sectionTitle = selectedExam ? `${processName} Counselling Plans` : "Premium Services & Counselling";
+  const personalizedSubtitle = selectedExam
+    ? `Get expert guidance for your exam journey (${examLabel})`
+    : "Get expert guidance for your exam journey";
 
   return (
     <section className="py-16 md:py-20">
       <div className="container">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-display font-bold text-foreground">Premium Services & Counselling</h2>
-          <p className="mt-3 text-muted-foreground">Get expert guidance for your exam journey</p>
+          <h2 className="text-3xl font-display font-bold text-foreground">{sectionTitle}</h2>
+          <p className="mt-3 text-muted-foreground">{personalizedSubtitle}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {loading ? (
@@ -38,6 +53,7 @@ export default function ServicesSection() {
             ))
           ) :
             plans.map((plan, i) => {
+              const displayName = getExamSpecificPlanName(plan.name, processName);
               const features = [...plan.mockTests.slice(0, 2), ...plan.counseling.slice(0, 2)];
               return (
                 <motion.div
@@ -56,7 +72,7 @@ export default function ServicesSection() {
                       Popular
                     </span>
                   )}
-                  <h3 className="text-lg font-display font-bold text-foreground">{plan.name}</h3>
+                  <h3 className="text-lg font-display font-bold text-foreground">{displayName}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">{plan.tagline}</p>
                   <div className="mt-4">
                     <span className="text-2xl font-display font-bold text-foreground">₹{plan.price.toLocaleString()}</span>
@@ -82,7 +98,7 @@ export default function ServicesSection() {
                     </button>
                     <BuyButton
                       featureId={plan.id}
-                      featureName={plan.name}
+                      featureName={displayName}
                       price={plan.price}
                       variant={plan.popular ? 'default' : 'outline'}
                     />

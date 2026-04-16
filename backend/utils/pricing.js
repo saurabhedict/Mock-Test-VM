@@ -13,8 +13,8 @@ const resolveFeature = async (featureId) => {
   const normalizedFeatureId = String(featureId || "").trim();
   if (!normalizedFeatureId) return null;
 
-  const plan = await Plan.findOne({ id: normalizedFeatureId })
-    .select("id name price")
+  const plan = await Plan.findOne({ id: normalizedFeatureId, isActive: true })
+    .select("id name price validityMode fixedExpiryDate validityValue validityUnit")
     .lean();
 
   if (plan) {

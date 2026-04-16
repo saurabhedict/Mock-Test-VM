@@ -5,6 +5,8 @@ export interface PlanFeature {
 
 export interface Plan {
   id: string;
+  examSlugs?: string[];
+  isActive?: boolean;
   name: string;
   tagline: string;
   target: string;

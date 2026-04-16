@@ -7,6 +7,13 @@ import { ArrowLeft, CheckCircle2, BookOpen, Users, Target, Rocket, Zap, HelpCirc
 import BuyButton from '@/components/BuyButton';
 import { usePlans } from '@/hooks/usePlans';
 import { formatPlanValidityLabel } from '@/lib/planValidity';
+import { useAuth } from '@/context/AuthContext';
+import { useExams } from '@/hooks/useExams';
+import {
+  getExamSpecificPlanName,
+  resolveCounsellingProcessName,
+  resolveExamLabel,
+} from '@/lib/counsellingContext';
 import {
   Accordion,
   AccordionContent,
@@ -17,9 +24,14 @@ import {
 export default function PlanDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  // const { plans } = usePlans();
-  const { plans, loading } = usePlans();
+  const { user } = useAuth();
+  const { exams } = useExams();
+  const selectedExam = user?.examPref || "";
+  const examLabel = resolveExamLabel(selectedExam, exams);
+  const processName = resolveCounsellingProcessName(selectedExam);
+  const { plans, loading } = usePlans(selectedExam);
   const plan = plans.find((p) => p.id === id);
+  const displayPlanName = plan ? getExamSpecificPlanName(plan.name, processName) : "";
 
   // Scroll to top automatically
   useEffect(() => {
@@ -84,7 +96,7 @@ export default function PlanDetails() {
                     </span>
                   )}
                   <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-extrabold text-foreground tracking-tight leading-tight">
-                    {plan.name}
+                    {displayPlanName}
                   </h1>
                   <p className="text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed">
                     {plan.tagline}
@@ -104,11 +116,11 @@ export default function PlanDetails() {
                 <div className="block lg:hidden pt-4">
                   <BuyButton
                     featureId={plan.id}
-                    featureName={plan.name}
+                    featureName={displayPlanName}
                     price={plan.price}
                     variant="default"
                     className="w-full h-14 text-lg font-bold shadow-md hover:shadow-lg transition-all"
-                    label={`Get ${plan.name} Now`}
+                    label={`Get ${displayPlanName} Now`}
                   />
                 </div>
               </motion.div>
@@ -143,7 +155,7 @@ export default function PlanDetails() {
 
                   <BuyButton
                     featureId={plan.id}
-                    featureName={plan.name}
+                    featureName={displayPlanName}
                     price={plan.price}
                     variant="default"
                     className="w-full h-14 text-lg font-bold shadow-md hover:shadow-lg transition-all"
@@ -318,7 +330,7 @@ export default function PlanDetails() {
             <div className="text-center mb-12">
               <HelpCircle className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
               <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-4">Frequently Asked Questions</h2>
-              <p className="text-muted-foreground text-lg">Everything you need to know about the {plan.name}.</p>
+              <p className="text-muted-foreground text-lg">Everything you need to know about the {displayPlanName}.</p>
             </div>
 
             <Accordion type="single" collapsible className="w-full space-y-4">
@@ -342,13 +354,14 @@ export default function PlanDetails() {
           <div className="container max-w-4xl mx-auto px-4 md:px-6 relative z-10 text-center space-y-8">
             <h2 className="text-4xl md:text-5xl font-display font-bold">Ready to secure your future?</h2>
             <p className="text-xl text-background/80 max-w-2xl mx-auto font-medium">
-              Join thousands of top scorers using the {plan.name} to maximize their CET outcome. Start your journey today.
+              Join thousands of top scorers using the {displayPlanName}
+              {examLabel ? ` to maximize your ${examLabel} outcome.` : "."} Start your journey today.
             </p>
 
             <div className="flex justify-center pt-4 max-w-sm mx-auto">
               <BuyButton
                 featureId={plan.id}
-                featureName={plan.name}
+                featureName={displayPlanName}
                 price={plan.price}
                 variant="default"
                 className="w-full h-14 text-lg font-bold shadow-xl"
