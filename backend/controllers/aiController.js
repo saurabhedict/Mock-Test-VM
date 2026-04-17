@@ -11,6 +11,11 @@ const {
   generateQuestions,
   predictStudentPerformance,
 } = require("../services/aiEducationService");
+const {
+  isCreditLimitError,
+  disableChatbot,
+  getChatbotStatus,
+} = require("../services/chatbotAvailabilityService");
 const { extractTextFromImage } = require("../services/ocrService");
 
 const ocrUpload = multer({
@@ -59,6 +64,16 @@ exports.analyzeTest = async (req, res) => {
 };
 
 exports.chat = async (req, res) => {
+  const chatbotStatus = getChatbotStatus();
+  if (chatbotStatus.disabled) {
+    return res.status(503).json({
+      success: false,
+      code: "CHATBOT_DISABLED",
+      message: chatbotStatus.reason,
+      chatbot: chatbotStatus,
+    });
+  }
+
   try {
     const data = await chatWithAssistant({
       userId: req.user._id,
@@ -75,8 +90,30 @@ exports.chat = async (req, res) => {
       ...data,
     });
   } catch (error) {
+    if (isCreditLimitError(error)) {
+      const disabled = disableChatbot({
+        reason: "Chatbot is temporarily unavailable due to exhausted AI credits.",
+        trigger: "credit_limit_error",
+      });
+
+      return res.status(503).json({
+        success: false,
+        code: "CHATBOT_DISABLED",
+        message: disabled.reason,
+        chatbot: disabled,
+      });
+    }
+
     handleError(res, error);
   }
+};
+
+exports.getChatStatus = async (req, res) => {
+  const chatbot = getChatbotStatus();
+  res.json({
+    success: true,
+    chatbot,
+  });
 };
 
 exports.listChatSessions = async (req, res) => {

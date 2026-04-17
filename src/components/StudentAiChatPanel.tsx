@@ -214,9 +214,11 @@ export default function StudentAiChatPanel({
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [chatbotDisabledReason, setChatbotDisabledReason] = useState("");
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const chatSessionsRef = useRef<ChatSessionDetail[]>([]);
+  const chatbotDisabled = Boolean(chatbotDisabledReason);
 
   const quickPrompts = useMemo(
     () => [
@@ -307,6 +309,28 @@ export default function StudentAiChatPanel({
   }, [chatSessions]);
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadChatStatus = async () => {
+      try {
+        const { data } = await api.get("/chat/status");
+        if (!mounted) return;
+
+        if (data?.chatbot?.disabled) {
+          setChatbotDisabledReason(String(data.chatbot.reason || "Chatbot is temporarily unavailable."));
+        }
+      } catch {
+        // Ignore status check failure and keep chat enabled.
+      }
+    };
+
+    void loadChatStatus();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const storedSessions = readStoredSessions(storageKey);
     setChatSessions(storedSessions);
 
@@ -383,6 +407,11 @@ export default function StudentAiChatPanel({
   };
 
   const sendMessage = async (message: string) => {
+    if (chatbotDisabled) {
+      toast.error(chatbotDisabledReason);
+      return;
+    }
+
     const trimmed = message.trim();
     if (!trimmed && pendingAttachments.length === 0) return;
 
@@ -461,6 +490,20 @@ export default function StudentAiChatPanel({
       setSuggestedPrompts(Array.isArray(data.suggestedPrompts) ? data.suggestedPrompts : []);
       persistConversation(nextSessionId, nextConversation);
     } catch (error) {
+      const apiError = error as {
+        response?: {
+          data?: {
+            code?: string;
+            message?: string;
+          };
+        };
+      };
+
+      if (apiError?.response?.data?.code === "CHATBOT_DISABLED") {
+        const reason = String(apiError.response.data.message || "Chatbot is temporarily unavailable.");
+        setChatbotDisabledReason(reason);
+      }
+
       toast.error(readApiErrorMessage(error, "AI chat request failed"));
       setMessages(messages);
       persistConversation(nextSessionId, messages);
@@ -577,12 +620,18 @@ export default function StudentAiChatPanel({
               "hover:border-[#E8722A]/30 hover:bg-[#FFF0E5] hover:text-[#E8722A] disabled:opacity-50",
             )}
             onClick={() => void sendMessage(suggestion)}
-            disabled={submitting}
+            disabled={submitting || chatbotDisabled}
           >
             {suggestion}
           </button>
         ))}
       </div>
+
+      {chatbotDisabled ? (
+        <div className="mt-4 rounded-2xl border border-[#E8722A]/30 bg-[#FFF0E5] px-4 py-3 text-sm text-[#9A5A2A]">
+          {chatbotDisabledReason}
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[16rem_minmax(0,1fr)]">
         <Sidebar
@@ -619,7 +668,7 @@ export default function StudentAiChatPanel({
             <InputBox
               value={prompt}
               attachments={pendingAttachments}
-              disabled={submitting}
+              disabled={submitting || chatbotDisabled}
               listening={listening}
               interimTranscript={interimTranscript}
               voiceSupported={voiceSupported}

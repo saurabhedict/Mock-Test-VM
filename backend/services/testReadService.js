@@ -32,7 +32,8 @@ const normalizeTestDocument = (test) => ({
   _id: toIdString(test._id),
   exam: String(test.exam || ""),
   subject: String(test.subject || ""),
-  questions: Array.isArray(test.questions) ? test.questions.map(normalizeQuestion) : test.questions,
+  // Always return a flat, valid question list to keep the test runner stable.
+  questions: Array.isArray(test.questions) ? test.questions.map(normalizeQuestion).filter(Boolean) : [],
 });
 
 const buildExamDetails = (exam) =>

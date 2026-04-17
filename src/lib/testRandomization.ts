@@ -213,7 +213,7 @@ export const buildOriginalAnswersPayload = (
 
 export const buildOriginalQuestionTimesPayload = (
   questions: DisplayTestQuestion[],
-  questionTimes: Record<number | string, number>,
+  questionTimes: Record<number | string, number> | number[],
 ) =>
   questions.reduce<number[]>((result, question, displayIndex) => {
     result[question.originalQuestionIndex] = Number(questionTimes[displayIndex] ?? questionTimes[String(displayIndex)] ?? 0);

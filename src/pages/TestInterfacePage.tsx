@@ -368,7 +368,11 @@ export default function TestInterfacePage() {
 
       try {
         const { data } = await api.get(`/tests/${testId}`);
-        const rawQuestions: BaseTestQuestion[] = data.questions.map((q: any) => ({
+        const flatQuestions = Array.isArray(data?.questions)
+          ? data.questions.filter((question: unknown) => Boolean(question && typeof question === 'object'))
+          : [];
+
+        const rawQuestions: BaseTestQuestion[] = flatQuestions.map((q: any) => ({
           id: String(q._id ?? q.id ?? ''),
           question: q.question,
           questionType: q.questionType || 'single',
@@ -383,10 +387,18 @@ export default function TestInterfacePage() {
           marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.marksPerQuestion) ?? 1,
           negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.negativeMarksPerQuestion) ?? 0,
           multipleCorrectScoringMode: q.multipleCorrectScoringMode || 'full_only',
-        }));
+        })).filter((question) => Boolean(question.id && question.question));
+
+        if (rawQuestions.length === 0) {
+          toast.error('This test has no valid questions. Please ask admin to republish it.');
+          navigate('/exams');
+          return;
+        }
+
         const randomizationConfig: TestRandomizationConfig = {
-          shuffleQuestions: Boolean(data.shuffleQuestions),
-          shuffleOptions: Boolean(data.shuffleOptions),
+          // Keep test flow normal and deterministic.
+          shuffleQuestions: false,
+          shuffleOptions: false,
         };
         const extractedSavedOrderState = extractSavedOrderState(parsedSavedState);
         const savedOrderStateForResume = parsedSavedState
@@ -409,8 +421,8 @@ export default function TestInterfacePage() {
           duration: data.durationMinutes,
           totalMarks: data.totalMarks,
           subjects: data.examDetails?.subjects || [],
-          shuffleQuestions: Boolean(data.shuffleQuestions),
-          shuffleOptions: Boolean(data.shuffleOptions),
+          shuffleQuestions: false,
+          shuffleOptions: false,
         };
       } catch {
         toast.error('Failed to load test data');
