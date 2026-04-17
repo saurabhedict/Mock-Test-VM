@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const TestModel = require("../models/Test");
+const Question = require("../models/Question");
 const Exam = require("../models/Exam");
 const { getOrSetCachedValue } = require("../utils/inMemoryCache");
 const { toIdString } = require("../utils/toIdString");
@@ -76,6 +77,14 @@ const getTestsByExamSummary = async (examId) =>
       { $match: { exam: examId, isPublished: true } },
       { $sort: { createdAt: -1 } },
       {
+        $lookup: {
+          from: "questions",
+          localField: "questions",
+          foreignField: "_id",
+          as: "validQuestions",
+        },
+      },
+      {
         $project: {
           title: 1,
           exam: 1,
@@ -87,7 +96,7 @@ const getTestsByExamSummary = async (examId) =>
           shuffleOptions: 1,
           isPublished: 1,
           createdAt: 1,
-          totalQuestions: { $size: { $ifNull: ["$questions", []] } },
+          totalQuestions: { $size: { $ifNull: ["$validQuestions", []] } },
         },
       },
     ]);
@@ -112,6 +121,25 @@ const loadTestWithQuestions = async (testId, questionSelect) => {
 
   if (!test) {
     return null;
+  }
+
+  // Auto-clean stale question refs: if some ObjectIds point to deleted Question
+  // docs, Mongoose populate returns null for those. Remove them from the DB
+  // so future loads and counts stay accurate.
+  if (Array.isArray(test.questions)) {
+    const originalCount = test.questions.length;
+    const validQuestions = test.questions.filter(Boolean);
+    const staleCount = originalCount - validQuestions.length;
+
+    if (staleCount > 0) {
+      const validIds = validQuestions.map((q) => q._id);
+      TestModel.updateOne(
+        { _id: test._id },
+        { $set: { questions: validIds } }
+      ).catch((err) => console.error("Auto-clean stale question refs error:", err));
+      test.questions = validQuestions;
+      console.log(`Auto-cleaned ${staleCount} stale question ref(s) from test ${testId}`);
+    }
   }
 
   const exam = await loadExamBySlug(test.exam);
