@@ -216,6 +216,7 @@ export default function StudentAiChatPanel({
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
+  const chatSessionsRef = useRef<ChatSessionDetail[]>([]);
 
   const quickPrompts = useMemo(
     () => [
@@ -267,6 +268,19 @@ export default function StudentAiChatPanel({
     setShowJumpToLatest(!isNearBottom);
   }, []);
 
+  const deleteServerSessions = useCallback(async (sessionIds: string[]) => {
+    const uniqueSessionIds = Array.from(new Set(sessionIds.map((value) => String(value || "").trim()).filter(Boolean)));
+    if (!uniqueSessionIds.length) {
+      return;
+    }
+
+    try {
+      await api.delete("/chat/sessions", { data: { sessionIds: uniqueSessionIds } });
+    } catch {
+      // Best effort cleanup; ignore if the request fails while navigating away.
+    }
+  }, []);
+
   const persistConversation = (nextSessionId: string, nextMessages: ChatMessage[]) => {
     const now = new Date().toISOString();
 
@@ -287,6 +301,10 @@ export default function StudentAiChatPanel({
       return upsertSession(current, nextSession);
     });
   };
+
+  useEffect(() => {
+    chatSessionsRef.current = chatSessions;
+  }, [chatSessions]);
 
   useEffect(() => {
     const storedSessions = readStoredSessions(storageKey);
@@ -332,6 +350,23 @@ export default function StudentAiChatPanel({
       return () => window.cancelAnimationFrame(frame);
     }
   }, [messages, submitting]);
+
+  useEffect(
+    () => () => {
+      const storedSessions = readStoredSessions(storageKey);
+      const sessionIds = Array.from(
+        new Set([
+          ...chatSessionsRef.current.map((session) => session.sessionId),
+          ...storedSessions.map((session) => session.sessionId),
+        ])
+      );
+
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(activeSessionKey);
+      void deleteServerSessions(sessionIds);
+    },
+    [activeSessionKey, deleteServerSessions, storageKey]
+  );
 
   const openSession = (nextSessionId: string) => {
     const nextSession = chatSessions.find((session) => session.sessionId === nextSessionId);
@@ -467,6 +502,12 @@ export default function StudentAiChatPanel({
     if (listening) {
       stopListening();
     }
+
+    const existingSessionIds = chatSessions.map((session) => session.sessionId);
+    void deleteServerSessions(existingSessionIds);
+    setChatSessions([]);
+    localStorage.removeItem(storageKey);
+    localStorage.removeItem(activeSessionKey);
 
     setSessionId("");
     setMessages([]);

@@ -85,10 +85,15 @@ const aiChatSessionSchema = new mongoose.Schema(
       type: [chatMessageSchema],
       default: [],
     },
+    expiresAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 aiChatSessionSchema.index({ userId: 1, sessionId: 1 }, { unique: true });
+aiChatSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model("AIChatSession", aiChatSessionSchema);

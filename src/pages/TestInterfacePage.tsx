@@ -315,6 +315,7 @@ export default function TestInterfacePage() {
       localStorage.removeItem(`test_${testId}`);
       localStorage.setItem(`result_${testId}`, JSON.stringify({
         testId,
+        testTitle: testInfo?.testName || "Practice Test",
         attemptId: data.attempt?._id || candidateState.attemptId,
         answers: candidateState.answers,
         questions,

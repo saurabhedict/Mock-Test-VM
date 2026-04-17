@@ -70,6 +70,7 @@ const MARKDOWN_MATH_FORMATTING_GUIDANCE =
 const withMarkdownMathGuidance = (instruction) => `${instruction} ${MARKDOWN_MATH_FORMATTING_GUIDANCE}`;
 const CHAT_ATTACHMENT_COUNT_LIMIT = 4;
 const CHAT_ATTACHMENT_TEXT_LIMIT = 6000;
+const TEST_CHAT_SESSION_TTL_HOURS = Math.max(1, Number(process.env.TEST_CHAT_SESSION_TTL_HOURS || 4));
 
 const chunkArray = (items = [], chunkSize = 6) => {
   const chunks = [];
@@ -446,6 +447,44 @@ const serializeChatMessage = (message = {}, index = 0) => ({
   attachments: serializeAttachmentMetadata(Array.isArray(message.attachments) ? message.attachments : []),
 });
 
+const isTestContext = (context = {}) =>
+  Boolean(
+    context?.summary ||
+      (Array.isArray(context?.questions) && context.questions.length) ||
+      context?.testTitle
+  );
+
+const resolveSessionExpiry = (context = {}) => {
+  if (!isTestContext(context)) {
+    return null;
+  }
+
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + TEST_CHAT_SESSION_TTL_HOURS);
+  return expiresAt;
+};
+
+const deleteChatSessions = async ({ userId, sessionIds = [] }) => {
+  const normalizedSessionIds = Array.from(
+    new Set(
+      (Array.isArray(sessionIds) ? sessionIds : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (!normalizedSessionIds.length) {
+    return { deletedCount: 0 };
+  }
+
+  const result = await AIChatSession.deleteMany({
+    userId,
+    sessionId: { $in: normalizedSessionIds },
+  });
+
+  return { deletedCount: result.deletedCount || 0 };
+};
+
 const chatWithAssistant = async ({ userId, sessionId, message, context = {}, memory = true }) => {
   if (!message?.trim()) {
     const error = new Error("message is required");
@@ -542,6 +581,7 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
   });
 
   if (memory) {
+    const expiresAt = resolveSessionExpiry(context);
     const nextSession =
       chatSession ||
       new AIChatSession({
@@ -565,6 +605,7 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
     if (!nextSession.contextLabel && examContext?.testTitle) {
       nextSession.contextLabel = truncateText(examContext.testTitle, 80);
     }
+    nextSession.expiresAt = expiresAt;
     await nextSession.save();
   }
 
@@ -576,6 +617,8 @@ const chatWithAssistant = async ({ userId, sessionId, message, context = {}, mem
 };
 
 const listChatSessions = async ({ userId }) => {
+  await AIChatSession.deleteMany({ userId, expiresAt: { $lte: new Date() } });
+
   const sessions = await AIChatSession.find({ userId })
     .sort({ updatedAt: -1, createdAt: -1 })
     .limit(30)
@@ -598,6 +641,8 @@ const listChatSessions = async ({ userId }) => {
 };
 
 const getChatSession = async ({ userId, sessionId }) => {
+  await AIChatSession.deleteMany({ userId, expiresAt: { $lte: new Date() } });
+
   const session = await AIChatSession.findOne({ userId, sessionId }).lean();
   if (!session) {
     const error = new Error("Chat session not found");
@@ -807,6 +852,7 @@ const predictStudentPerformance = async ({ studentId, analytics: providedAnalyti
 module.exports = {
   analyzeTest,
   chatWithAssistant,
+  deleteChatSessions,
   listChatSessions,
   getChatSession,
   parseQuestionsFromExtractedText,

@@ -38,6 +38,7 @@ type Question = DisplayTestQuestion;
 
 interface ResultData {
   testId: string;
+  testTitle?: string;
   attemptId?: string | null;
   answers: Record<string, AnswerValue>;
   questions: Question[];
@@ -371,6 +372,7 @@ export default function ResultsPage() {
           <section className="mt-8">
             {reviewReady ? (
               <StudentAiChatPanel
+                testTitle={result.testTitle || "Practice Test"}
                 questions={questions}
                 answers={answers}
                 summary={summary}

@@ -2,6 +2,7 @@ const multer = require("multer");
 const {
   analyzeTest,
   chatWithAssistant,
+  deleteChatSessions,
   listChatSessions,
   getChatSession,
   parseQuestionsFromExtractedText,
@@ -99,6 +100,22 @@ exports.getChatSession = async (req, res) => {
     res.json({
       success: true,
       session,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+exports.deleteChatSessions = async (req, res) => {
+  try {
+    const result = await deleteChatSessions({
+      userId: req.user._id,
+      sessionIds: req.body?.sessionIds,
+    });
+
+    res.json({
+      success: true,
+      deletedCount: result.deletedCount || 0,
     });
   } catch (error) {
     handleError(res, error);

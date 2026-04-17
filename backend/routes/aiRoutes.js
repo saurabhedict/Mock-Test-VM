@@ -6,6 +6,7 @@ router.post("/analyze-test", protect, aiController.analyzeTest);
 router.post("/chat", protect, aiController.chat);
 router.get("/chat/sessions", protect, aiController.listChatSessions);
 router.get("/chat/sessions/:sessionId", protect, aiController.getChatSession);
+router.delete("/chat/sessions", protect, aiController.deleteChatSessions);
 router.post(
   "/upload-questions-image",
   protect,
