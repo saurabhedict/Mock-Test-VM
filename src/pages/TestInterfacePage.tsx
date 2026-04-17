@@ -395,6 +395,10 @@ export default function TestInterfacePage() {
           return;
         }
 
+        // Compute totalMarks dynamically from actual questions so it stays accurate
+        // even when questions have been added/removed after the test was created.
+        const computedTotalMarks = rawQuestions.reduce((sum, q) => sum + (q.marksPerQuestion ?? 1), 0);
+
         const randomizationConfig: TestRandomizationConfig = {
           // Keep test flow normal and deterministic.
           shuffleQuestions: false,
@@ -419,7 +423,7 @@ export default function TestInterfacePage() {
         finalTestInfo = {
           testName: data.title,
           duration: data.durationMinutes,
-          totalMarks: data.totalMarks,
+          totalMarks: computedTotalMarks || data.totalMarks,
           subjects: data.examDetails?.subjects || [],
           shuffleQuestions: false,
           shuffleOptions: false,

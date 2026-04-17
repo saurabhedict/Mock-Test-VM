@@ -52,6 +52,21 @@ export default function ServicesSection() {
               </div>
             ))
           ) :
+            plans.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                <div className="rounded-full bg-muted/50 p-4 mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-muted-foreground/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="font-semibold text-foreground text-lg">No Plans Available</p>
+                <p className="mt-2 text-sm text-muted-foreground max-w-md">
+                  {selectedExam
+                    ? `There are no counselling plans available for ${examLabel} at the moment. Please check back later.`
+                    : "No counselling plans are currently available. Please check back later."}
+                </p>
+              </div>
+            ) :
             plans.map((plan, i) => {
               const displayName = getExamSpecificPlanName(plan.name, processName);
               const features = [...plan.mockTests.slice(0, 2), ...plan.counseling.slice(0, 2)];
