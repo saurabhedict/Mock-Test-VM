@@ -387,7 +387,7 @@ export default function TestInterfacePage() {
           marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.marksPerQuestion) ?? 1,
           negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.negativeMarksPerQuestion) ?? 0,
           multipleCorrectScoringMode: q.multipleCorrectScoringMode || 'full_only',
-        })).filter((question) => Boolean(question.id && question.question));
+        })).filter((question) => Boolean(question.id && (question.question || question.questionImage || question.options?.length)));
 
         if (rawQuestions.length === 0) {
           toast.error('This test has no valid questions. Please ask admin to republish it.');
