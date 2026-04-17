@@ -255,10 +255,15 @@ exports.getAllTests = async (req, res) => {
     }).sort({ createdAt: -1 });
     
     // Convert to the response format expected (e.g. including a count)
-    const formattedTests = tests.map(test => ({
-      ...formatTestResponse(test.toObject()),
-      _count: { questions: test.questions.length }
-    }));
+    // Filter out null refs (deleted questions) so count matches actual questions
+    const formattedTests = tests.map(test => {
+      const testObj = test.toObject();
+      const validQuestions = testObj.questions.filter(Boolean);
+      return {
+        ...formatTestResponse(testObj),
+        _count: { questions: validQuestions.length }
+      };
+    });
     
     res.json(formattedTests);
   } catch (error) {
