@@ -1,4 +1,6 @@
 const Coupon = require("../models/Coupon");
+const Exam = require("../models/Exam");
+const User = require("../models/User");
 const {
   applyCouponToPrice,
   resolveCoupon,
@@ -13,6 +15,9 @@ const normalizeCouponPayload = (body = {}) => {
   const applicableFeatures = Array.isArray(body.applicableFeatures)
     ? body.applicableFeatures.map((feature) => String(feature).trim()).filter(Boolean)
     : [];
+  const applicableExams = Array.isArray(body.applicableExams)
+    ? body.applicableExams.map((examId) => String(examId).trim().toLowerCase()).filter(Boolean)
+    : [];
   const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
 
   return {
@@ -21,6 +26,7 @@ const normalizeCouponPayload = (body = {}) => {
     discountValue,
     maxUses,
     applicableFeatures,
+    applicableExams,
     expiresAt,
   };
 };
@@ -32,6 +38,23 @@ const validateCouponPayload = ({ code, discountType, discountValue, maxUses, exp
   if (discountType === "percent" && discountValue > 100) return "Percent discount cannot exceed 100";
   if (!Number.isFinite(maxUses) || maxUses < 1) return "Max uses must be at least 1";
   if (expiresAt && Number.isNaN(expiresAt.getTime())) return "Expiry date is invalid";
+  return null;
+};
+
+const validateApplicableExams = async (examIds = []) => {
+  if (!Array.isArray(examIds) || examIds.length === 0) return null;
+
+  const uniqueExamIds = [...new Set(examIds)];
+  const exams = await Exam.find({ slug: { $in: uniqueExamIds }, isActive: true })
+    .select("slug")
+    .lean();
+  const validExamIds = new Set(exams.map((exam) => exam.slug));
+  const invalidExamIds = uniqueExamIds.filter((examId) => !validExamIds.has(examId));
+
+  if (invalidExamIds.length > 0) {
+    return `Invalid exam(s): ${invalidExamIds.join(", ")}`;
+  }
+
   return null;
 };
 
@@ -53,7 +76,12 @@ exports.validateCoupon = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid item selected" });
     }
 
-    const couponResult = await resolveCoupon({ code, featureId: feature.id });
+    const user = await User.findById(req.user.id).select("examPref").lean();
+    const couponResult = await resolveCoupon({
+      code,
+      featureId: feature.id,
+      userExamPref: String(user?.examPref || "").trim().toLowerCase(),
+    });
     if (couponResult.status) {
       return res.status(couponResult.status).json({ success: false, message: couponResult.message });
     }
@@ -87,6 +115,10 @@ exports.createCoupon = async (req, res) => {
     if (validationError) {
       return res.status(400).json({ success: false, message: validationError });
     }
+    const examValidationError = await validateApplicableExams(payload.applicableExams);
+    if (examValidationError) {
+      return res.status(400).json({ success: false, message: examValidationError });
+    }
 
     const existing = await Coupon.findOne({ code: payload.code });
     if (existing) {
@@ -100,6 +132,7 @@ exports.createCoupon = async (req, res) => {
       maxUses: payload.maxUses,
       expiresAt: payload.expiresAt,
       applicableFeatures: payload.applicableFeatures,
+      applicableExams: payload.applicableExams,
     });
 
     res.status(201).json({ success: true, message: "Coupon created successfully", coupon });
@@ -133,12 +166,17 @@ exports.updateCoupon = async (req, res) => {
     if (validationError) {
       return res.status(400).json({ success: false, message: validationError });
     }
+    const examValidationError = await validateApplicableExams(payload.applicableExams);
+    if (examValidationError) {
+      return res.status(400).json({ success: false, message: examValidationError });
+    }
 
     coupon.discountType = payload.discountType;
     coupon.discountValue = payload.discountValue;
     coupon.maxUses = payload.maxUses;
     coupon.expiresAt = payload.expiresAt;
     coupon.applicableFeatures = payload.applicableFeatures;
+    coupon.applicableExams = payload.applicableExams;
     coupon.isActive = typeof req.body.isActive === "boolean" ? req.body.isActive : coupon.isActive;
 
     await coupon.save();

@@ -23,6 +23,7 @@ import api from "@/services/api";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { services } from "@/data/services";
+import { useExams } from "@/hooks/useExams";
 
 type DiscountType = "percent" | "flat";
 
@@ -36,6 +37,7 @@ interface Coupon {
   expiresAt: string | null;
   isActive: boolean;
   applicableFeatures: string[];
+  applicableExams: string[];
   createdAt: string;
 }
 
@@ -46,6 +48,7 @@ interface CouponPayload {
   maxUses: number;
   expiresAt: string;
   applicableFeatures: string[];
+  applicableExams: string[];
 }
 
 interface ApiErrorResponse {
@@ -64,6 +67,7 @@ const emptyForm = (): CouponPayload => ({
   maxUses: 100,
   expiresAt: "",
   applicableFeatures: [],
+  applicableExams: [],
 });
 
 const formatDateTime = (value: string | null) => {
@@ -87,6 +91,7 @@ const toInputDateTime = (value: string | null) => {
 
 export default function CouponManager() {
   const { toast } = useToast();
+  const { exams } = useExams();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -121,6 +126,13 @@ export default function CouponManager() {
 
   const activeCoupons = coupons.filter((coupon) => coupon.isActive).length;
   const totalUses = coupons.reduce((sum, coupon) => sum + coupon.usedCount, 0);
+  const examLabelMap = useMemo(
+    () =>
+      new Map(
+        exams.map((exam) => [exam.examId, exam.shortName || exam.examName])
+      ),
+    [exams]
+  );
   const expiringSoon = coupons.filter((coupon) => {
     if (!coupon.expiresAt) return false;
     const diff = new Date(coupon.expiresAt).getTime() - Date.now();
@@ -134,6 +146,7 @@ export default function CouponManager() {
     maxUses: Number(form.maxUses),
     expiresAt: form.expiresAt || null,
     applicableFeatures: form.applicableFeatures,
+    applicableExams: form.applicableExams,
   });
 
   const handleSubmit = async () => {
@@ -169,6 +182,7 @@ export default function CouponManager() {
       maxUses: coupon.maxUses,
       expiresAt: toInputDateTime(coupon.expiresAt),
       applicableFeatures: coupon.applicableFeatures,
+      applicableExams: coupon.applicableExams || [],
     });
   };
 
@@ -178,6 +192,15 @@ export default function CouponManager() {
       applicableFeatures: current.applicableFeatures.includes(featureId)
         ? current.applicableFeatures.filter((id) => id !== featureId)
         : [...current.applicableFeatures, featureId],
+    }));
+  };
+
+  const handleToggleExam = (examId: string) => {
+    setForm((current) => ({
+      ...current,
+      applicableExams: current.applicableExams.includes(examId)
+        ? current.applicableExams.filter((id) => id !== examId)
+        : [...current.applicableExams, examId],
     }));
   };
 
@@ -263,7 +286,7 @@ export default function CouponManager() {
             <div>
               <CardTitle>{editingCoupon ? `Edit ${editingCoupon.code}` : "Create Coupon"}</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Set discount type, usage cap, expiry, and optionally target specific services.
+                Set discount type, usage cap, expiry, and optionally target specific services and exams.
               </p>
             </div>
             {editingCoupon && (
@@ -401,6 +424,46 @@ export default function CouponManager() {
               </p>
             </div>
 
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Applicable Exams
+              </label>
+              <div className="rounded-2xl border border-border p-3 space-y-2 max-h-56 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => setForm((current) => ({ ...current, applicableExams: [] }))}
+                  className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${
+                    form.applicableExams.length === 0
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/40 text-foreground hover:bg-muted"
+                  }`}
+                >
+                  All exams
+                </button>
+                {exams.map((exam) => {
+                  const selected = form.applicableExams.includes(exam.examId);
+                  return (
+                    <button
+                      key={exam._id}
+                      type="button"
+                      onClick={() => handleToggleExam(exam.examId)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-colors ${
+                        selected
+                          ? "bg-primary/10 text-primary border border-primary/20"
+                          : "bg-muted/30 text-foreground hover:bg-muted/60 border border-transparent"
+                      }`}
+                    >
+                      <span>{exam.shortName || exam.examName}</span>
+                      {selected ? <Check className="w-4 h-4" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                If exams are selected, this coupon can only be used by students with matching exam preference.
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={handleSubmit}
@@ -476,6 +539,17 @@ export default function CouponManager() {
                                 </span>
                               );
                             })
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {(coupon.applicableExams || []).length === 0 ? (
+                            <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">All exams</span>
+                          ) : (
+                            coupon.applicableExams.map((examId) => (
+                              <span key={examId} className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                                {examLabelMap.get(examId) || examId}
+                              </span>
+                            ))
                           )}
                         </div>
                       </div>

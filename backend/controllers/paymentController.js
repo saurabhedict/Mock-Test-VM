@@ -66,7 +66,11 @@ exports.createOrder = async (req, res) => {
     let normalizedCouponCode = null;
 
     if (couponCode) {
-      const couponResult = await resolveCoupon({ code: couponCode, featureId: feature.id });
+      const couponResult = await resolveCoupon({
+        code: couponCode,
+        featureId: feature.id,
+        userExamPref: String(user?.examPref || "").trim().toLowerCase(),
+      });
       if (couponResult.status) {
         return res.status(couponResult.status).json({ success: false, message: couponResult.message });
       }

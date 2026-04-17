@@ -42,8 +42,9 @@ const resolveFeature = async (featureId) => {
   };
 };
 
-const resolveCoupon = async ({ code, featureId }) => {
+const resolveCoupon = async ({ code, featureId, userExamPref = "" }) => {
   const normalizedCode = String(code || "").toUpperCase().trim();
+  const normalizedExamPref = String(userExamPref || "").trim().toLowerCase();
 
   if (!normalizedCode) {
     return { status: 400, message: "Coupon code is required" };
@@ -67,8 +68,20 @@ const resolveCoupon = async ({ code, featureId }) => {
     return { status: 400, message: "This coupon has reached its usage limit" };
   }
 
-  if (coupon.applicableFeatures.length > 0 && !coupon.applicableFeatures.includes(featureId)) {
+  const applicableFeatures = Array.isArray(coupon.applicableFeatures) ? coupon.applicableFeatures : [];
+  if (applicableFeatures.length > 0 && !applicableFeatures.includes(featureId)) {
     return { status: 400, message: "This coupon is not valid for this item" };
+  }
+
+  const applicableExams = Array.isArray(coupon.applicableExams) ? coupon.applicableExams : [];
+  if (applicableExams.length > 0) {
+    if (!normalizedExamPref) {
+      return { status: 400, message: "Set your exam preference in profile to use this coupon" };
+    }
+
+    if (!applicableExams.includes(normalizedExamPref)) {
+      return { status: 400, message: "This coupon is not valid for your selected exam" };
+    }
   }
 
   return { coupon };

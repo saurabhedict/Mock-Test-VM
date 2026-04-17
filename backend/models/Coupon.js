@@ -38,6 +38,10 @@ const couponSchema = new mongoose.Schema(
       type: [String],
       default: [], // empty = applies to all features
     },
+    applicableExams: {
+      type: [String],
+      default: [], // empty = applies to all exam preferences
+    },
   },
   { timestamps: true }
 );
