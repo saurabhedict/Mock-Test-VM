@@ -6,6 +6,14 @@ const { getOrSetCachedValue, clearCachedValuesByPrefix } = require("../utils/inM
 
 const PLAN_CACHE_TTL_MS = 5 * 60 * 1000;
 
+// Strip _id from subdocument arrays to avoid BSON ObjectId cast errors
+const stripSubdocIds = (arr) => {
+  if (!Array.isArray(arr)) return arr;
+  return arr.map(({ _id, ...rest }) => rest);
+};
+
+const SUBDOC_ARRAY_FIELDS = ["mockTests", "counseling", "benefits", "howItWorks", "personas", "faqs"];
+
 // Seed data - used only when DB has no plans
 const defaultPlans = [
   {
@@ -421,7 +429,11 @@ exports.updatePlan = async (req, res) => {
     ];
 
     fields.forEach((field) => {
-      if (req.body[field] !== undefined) plan[field] = req.body[field];
+      if (req.body[field] !== undefined) {
+        plan[field] = SUBDOC_ARRAY_FIELDS.includes(field)
+          ? stripSubdocIds(req.body[field])
+          : req.body[field];
+      }
     });
 
     if (req.body.examSlugs !== undefined) {
