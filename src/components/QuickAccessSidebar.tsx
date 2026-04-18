@@ -184,6 +184,28 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
   }, [open, onClose]);
 
   useEffect(() => {
+    if (!open) return;
+
+    const { body, documentElement } = document;
+    const previousOverflow = body.style.overflow;
+    const previousPaddingRight = body.style.paddingRight;
+    const previousOverscrollBehavior = documentElement.style.overscrollBehavior;
+    const scrollbarWidth = window.innerWidth - documentElement.clientWidth;
+
+    body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    documentElement.style.overscrollBehavior = "none";
+
+    return () => {
+      body.style.overflow = previousOverflow;
+      body.style.paddingRight = previousPaddingRight;
+      documentElement.style.overscrollBehavior = previousOverscrollBehavior;
+    };
+  }, [open]);
+
+  useEffect(() => {
     const root = window.document.documentElement;
     if (darkMode) {
       root.classList.add("dark");
@@ -255,8 +277,8 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
       <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
       <div
         ref={sidebarRef}
-        className="fixed top-0 right-0 z-50 h-full w-80 bg-card border-l border-border shadow-2xl flex flex-col overflow-hidden"
-        style={{ animation: "slideInRight 0.25s ease-out" }}
+        className="fixed top-0 right-0 z-50 flex h-full min-h-0 w-80 flex-col overflow-hidden border-l border-border bg-card shadow-2xl"
+        style={{ animation: "slideInRight 0.25s ease-out", transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card shrink-0">
@@ -292,7 +314,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-scroll overscroll-contain" style={{ transform: 'translateZ(0)', willChange: 'transform' }}>
 
           {/* Notifications Tab */}
           {activeTab === "notifications" && (
@@ -436,7 +458,7 @@ export default function QuickAccessSidebar({ open, onClose }: Props) {
                 <Link
                   to="/exams"
                   onClick={onClose}
-                  className="flex items-center justify-between w-full py-2 px-3 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
+                  className="flex w-full items-center justify-between rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
                   Start a Mock Test <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
