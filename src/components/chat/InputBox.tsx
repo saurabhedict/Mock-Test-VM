@@ -46,19 +46,19 @@ export default function InputBox({
   const canSend = Boolean(value.trim() || attachments.length > 0) && !disabled;
 
   return (
-    <div className="sticky bottom-0 z-10 rounded-[1.9rem] border border-[#EAE4DE] bg-white/95 p-3 shadow-sm backdrop-blur">
+    <div className="sticky bottom-0 z-10 rounded-[1.9rem] border border-border bg-background/95 p-3 shadow-sm backdrop-blur">
       {attachments.length > 0 ? (
         <div className="mb-3 flex flex-wrap gap-2">
           {attachments.map((attachment) => (
             <div
               key={attachment.id}
-              className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#EAE4DE] bg-[#FAF5F0] px-3 py-2 text-xs text-[#231C17]"
+              className="inline-flex max-w-full items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-2 text-xs text-foreground"
             >
               <span className="truncate">{attachment.name}</span>
               <button
                 type="button"
                 onClick={() => onRemoveAttachment(attachment.id)}
-                className="rounded-full p-1 text-[#7A716A] transition hover:bg-white hover:text-[#231C17]"
+                className="rounded-full p-1 text-muted-foreground transition hover:bg-background hover:text-foreground"
                 aria-label={`Remove ${attachment.name}`}
               >
                 <X className="h-3.5 w-3.5" />
@@ -74,7 +74,7 @@ export default function InputBox({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#EAE4DE] bg-[#FAF5F0] text-[#7A716A] transition hover:border-[#E8722A]/20 hover:bg-[#FFF0E5] hover:text-[#E8722A]"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-muted/60 text-muted-foreground transition hover:border-primary/20 hover:bg-accent hover:text-primary"
             aria-label="Attach file"
           >
             <Paperclip className="h-4.5 w-4.5" />
@@ -88,9 +88,9 @@ export default function InputBox({
               "flex h-11 w-11 items-center justify-center rounded-2xl border transition",
               voiceSupported
                 ? listening
-                  ? "border-[#E8722A]/30 bg-[#FFF0E5] text-[#E8722A]"
-                  : "border-[#EAE4DE] bg-[#FAF5F0] text-[#7A716A] hover:border-[#E8722A]/20 hover:bg-[#FFF0E5] hover:text-[#E8722A]"
-                : "cursor-not-allowed border-[#EAE4DE] bg-[#F3EDE7] text-[#B5ACA5]",
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-muted/60 text-muted-foreground hover:border-primary/20 hover:bg-accent hover:text-primary"
+                : "cursor-not-allowed border-border bg-muted text-muted-foreground/50",
             )}
             aria-label={listening ? "Stop voice input" : "Start voice input"}
           >
@@ -111,10 +111,10 @@ export default function InputBox({
             }}
             placeholder="Message VidyaSaathi..."
             disabled={disabled}
-            className="min-h-[56px] max-h-[120px] w-full resize-none rounded-[1.5rem] border-[#EAE4DE] bg-[#FAF5F0] px-4 py-3 text-sm leading-7 text-[#231C17] placeholder:text-[#7A716A]/60 focus-visible:ring-[#E8722A]/25"
+            className="min-h-[56px] max-h-[120px] w-full resize-none rounded-[1.5rem] border-border bg-muted/60 px-4 py-3 text-sm leading-7 text-foreground placeholder:text-muted-foreground/70 focus-visible:ring-primary/25"
             rows={1}
           />
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-[#7A716A]/70">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground/80">
             <span>Enter to send, Shift+Enter for a new line</span>
             <span>
               {listening
