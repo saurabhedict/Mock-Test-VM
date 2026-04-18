@@ -403,6 +403,34 @@ exports.deleteExam = async (req, res) => {
   }
 };
 
+// @desc    Update exam publish status
+// @route   PUT /api/admin/exams/:id/publish
+// @access  Private/Admin
+exports.updateExamPublished = async (req, res) => {
+  try {
+    const { isActive } = req.body;
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ msg: "isActive must be true or false" });
+    }
+
+    const exam = await Exam.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true }
+    );
+
+    if (!exam) {
+      return res.status(404).json({ msg: "Exam not found" });
+    }
+
+    clearPublicReadCaches();
+    res.json(formatExamResponse(exam));
+  } catch (error) {
+    console.error("UpdateExamPublished error:", error);
+    res.status(500).json({ msg: "Server Error" });
+  }
+};
+
 // @desc    Create a new test
 // @route   POST /api/admin/tests
 // @access  Private/Admin

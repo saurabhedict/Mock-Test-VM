@@ -8,6 +8,22 @@ const { sendOTPEmail } = require("../utils/sendEmail");
 const { sendOTPSMS } = require("../utils/sendSMS");
 
 const generateOTP = () => crypto.randomInt(100000, 999999).toString();
+const PASSWORD_POLICY_MESSAGE = "Password must be at least 8 characters and include at least one uppercase letter, one number, and one special character";
+const isStrongPassword = (password) => /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password);
+const INDIAN_PHONE_MESSAGE = "Please provide a valid Indian phone number (10 digits starting with 6-9)";
+
+const normalizeIndianPhone = (value) => {
+  const raw = String(value || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  let localNumber = digits;
+
+  if (digits.length === 12 && digits.startsWith("91")) {
+    localNumber = digits.slice(2);
+  }
+
+  if (!/^[6-9]\d{9}$/.test(localNumber)) return null;
+  return `+91${localNumber}`;
+};
 
 const normalizeExamPreference = (value) => String(value || "").trim().toLowerCase();
 
@@ -49,12 +65,17 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password, phone, otpMethod } = req.body;
     const examPref = await validateExamPreference(req.body.examPref);
+    const normalizedPhone = normalizeIndianPhone(phone);
     if (!name || !email || !password)
       return res.status(400).json({ success: false, message: "Name, email and password are required" });
-    if (password.length < 6)
-      return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
-    if (otpMethod === "sms" && !phone)
-      return res.status(400).json({ success: false, message: "Phone number is required to receive OTP via SMS" });
+    if (!examPref)
+      return res.status(400).json({ success: false, message: "Exam preference is required" });
+    if (!isStrongPassword(password))
+      return res.status(400).json({ success: false, message: PASSWORD_POLICY_MESSAGE });
+    if (!phone)
+      return res.status(400).json({ success: false, message: "Phone number is required" });
+    if (!normalizedPhone)
+      return res.status(400).json({ success: false, message: INDIAN_PHONE_MESSAGE });
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser && existingUser.isVerified)
@@ -66,15 +87,15 @@ exports.register = async (req, res) => {
     let user;
     if (existingUser && !existingUser.isVerified) {
       existingUser.name = name; existingUser.password = password;
-      existingUser.phone = phone; existingUser.examPref = examPref;
+      existingUser.phone = normalizedPhone; existingUser.examPref = examPref;
       existingUser.otp = otp; existingUser.otpExpiry = otpExpiry;
       user = await existingUser.save();
     } else {
-      user = await User.create({ name, email, password, phone, examPref, otp, otpExpiry });
+      user = await User.create({ name, email, password, phone: normalizedPhone, examPref, otp, otpExpiry });
     }
 
     if (otpMethod === "sms") {
-      await sendOTPSMS(phone, otp, name);
+      await sendOTPSMS(normalizedPhone, otp, name);
       return res.status(201).json({ success: true, message: "OTP sent to your phone number.", email, otpMethod: "sms" });
     } else {
       await sendOTPEmail(email, otp, name);
@@ -163,7 +184,7 @@ exports.resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     if (!email || !otp || !newPassword) return res.status(400).json({ success: false, message: "Email, OTP and new password are required" });
-    if (newPassword.length < 6) return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+    if (!isStrongPassword(newPassword)) return res.status(400).json({ success: false, message: PASSWORD_POLICY_MESSAGE });
     const user = await User.findOne({ email: email.toLowerCase() }).select("+otp +otpExpiry");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
     if (user.otp !== otp) return res.status(400).json({ success: false, message: "Invalid OTP" });

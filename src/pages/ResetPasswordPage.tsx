@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import api from "@/services/api";
+import PasswordStrengthChecklist from "@/components/PasswordStrengthChecklist";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/passwordPolicy";
 
 export default function ResetPasswordPage() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -67,7 +69,7 @@ const maskedPhone = state?.maskedPhone;
     e.preventDefault();
     const otpString = otp.join("");
     if (otpString.length !== 6) { toast.error("Please enter the complete 6-digit OTP"); return; }
-    if (newPassword.length < 6) { toast.error("Password must be at least 6 characters"); return; }
+    if (!isStrongPassword(newPassword)) { toast.error(PASSWORD_POLICY_MESSAGE); return; }
     if (newPassword !== confirmPassword) { toast.error("Passwords do not match"); return; }
 
     setLoading(true);
@@ -133,7 +135,7 @@ const maskedPhone = state?.maskedPhone;
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="New password (min 6 characters)"
+                placeholder="New password (min 8, uppercase, number, special char)"
                 type={showPassword ? "text" : "password"}
                 className="pl-10 pr-10"
                 value={newPassword}
@@ -147,6 +149,7 @@ const maskedPhone = state?.maskedPhone;
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            <PasswordStrengthChecklist password={newPassword} />
 
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
