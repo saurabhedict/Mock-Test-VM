@@ -30,13 +30,12 @@ export default function Sidebar({
 }: SidebarProps) {
   return (
     <aside
-      className="min-w-0 rounded-3xl border border-[#EAE4DE] bg-white/90 p-4 shadow-sm"
-      style={{ boxShadow: "0 4px 24px -6px rgba(30,20,12,0.08)" }}
+      className="min-w-0 rounded-3xl border border-border bg-card/90 p-4 shadow-card"
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7A716A]/60">History</div>
-          <h3 className="mt-2 text-lg font-display font-semibold text-[#231C17]">Previous chats</h3>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground/70">History</div>
+          <h3 className="mt-2 text-lg font-display font-semibold text-foreground">Previous chats</h3>
         </div>
 
         <Button
@@ -50,8 +49,8 @@ export default function Sidebar({
         </Button>
       </div>
 
-      <div className="mb-3 flex items-center gap-2 rounded-2xl border border-[#EAE4DE] bg-[#FAF5F0] px-3 py-2 text-xs text-[#7A716A]">
-        <History className="h-4 w-4 text-[#E8722A]" />
+      <div className="mb-3 flex items-center gap-2 rounded-2xl border border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+        <History className="h-4 w-4 text-primary" />
         Click any previous thread to continue where you left off.
       </div>
 
@@ -60,11 +59,11 @@ export default function Sidebar({
           Array.from({ length: 4 }).map((_, index) => (
             <div
               key={index}
-              className="min-w-[16rem] rounded-2xl border border-[#EAE4DE] bg-[#FAF5F0] p-4 lg:min-w-0"
+              className="min-w-[16rem] rounded-2xl border border-border bg-muted/60 p-4 lg:min-w-0"
             >
-              <div className="h-3 w-24 rounded-full bg-[#EAE4DE]" />
-              <div className="mt-3 h-3 w-full rounded-full bg-[#F3EDE7]" />
-              <div className="mt-2 h-3 w-20 rounded-full bg-[#F3EDE7]" />
+              <div className="h-3 w-24 rounded-full bg-border" />
+              <div className="mt-3 h-3 w-full rounded-full bg-muted" />
+              <div className="mt-2 h-3 w-20 rounded-full bg-muted" />
             </div>
           ))
         ) : sessions.length > 0 ? (
@@ -79,21 +78,21 @@ export default function Sidebar({
                 className={cn(
                   "flex w-full min-w-[16rem] items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-all lg:min-w-0",
                   isActive
-                    ? "border-[#E8722A]/30 bg-[#FFF0E5]"
-                    : "border-[#EAE4DE] bg-[#FAF5F0] hover:border-[#E8722A]/20 hover:bg-white",
+                    ? "border-primary/30 bg-accent/70"
+                    : "border-border bg-background/60 hover:border-primary/20 hover:bg-card",
                 )}
               >
-                <div className="min-w-0 flex-1 pr-2 text-sm font-medium text-[#231C17] block truncate">
+                <div className="block min-w-0 flex-1 truncate pr-2 text-sm font-medium text-foreground">
                   {session.title || "Untitled chat"}
                 </div>
-                <div className="shrink-0 text-[10px] uppercase text-[#7A716A]/55">
+                <div className="shrink-0 text-[10px] uppercase text-muted-foreground/60">
                   {formatUpdatedAt(session.updatedAt)}
                 </div>
               </button>
             );
           })
         ) : (
-          <div className="rounded-xl border border-dashed border-[#EAE4DE] bg-[#FAF5F0] p-4 text-xs leading-5 text-[#7A716A]">
+          <div className="rounded-xl border border-dashed border-border bg-muted/60 p-4 text-xs leading-5 text-muted-foreground">
             Your chat history will appear here once you start asking questions.
           </div>
         )}

@@ -220,15 +220,15 @@
   }
 
   .math-renderer h1 {
-    @apply mt-6 text-2xl font-display font-semibold text-[#231C17];
+    @apply mt-6 text-2xl font-display font-semibold text-foreground;
   }
 
   .math-renderer h2 {
-    @apply mt-6 text-xl font-display font-semibold text-[#231C17];
+    @apply mt-6 text-xl font-display font-semibold text-foreground;
   }
 
   .math-renderer h3 {
-    @apply mt-5 text-lg font-display font-semibold text-[#231C17];
+    @apply mt-5 text-lg font-display font-semibold text-foreground;
   }
 
   .math-renderer ul {

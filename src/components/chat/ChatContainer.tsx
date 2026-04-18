@@ -26,7 +26,7 @@ export default function ChatContainer({
   onJumpToLatest,
 }: ChatContainerProps) {
   return (
-    <div className="relative min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-[#EAE4DE] bg-[#FAF5F0]">
+    <div className="relative min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-border bg-muted/50">
       <div
         ref={viewportRef}
         onScroll={onScroll}
@@ -49,7 +49,7 @@ export default function ChatContainer({
                     key={prompt}
                     type="button"
                     onClick={() => onPromptClick(prompt)}
-                    className="rounded-full border border-[#EAE4DE] bg-white px-4 py-2 text-xs text-[#231C17]/75 shadow-sm transition hover:border-[#E8722A]/25 hover:bg-[#FFF0E5] hover:text-[#E8722A]"
+                    className="rounded-full border border-border bg-card px-4 py-2 text-xs text-foreground/80 shadow-sm transition hover:border-primary/25 hover:bg-accent hover:text-primary"
                   >
                     {prompt}
                   </button>
@@ -64,10 +64,10 @@ export default function ChatContainer({
 
           {submitting ? (
             <div className="flex justify-start">
-              <div className="max-w-[22rem] rounded-[1.75rem] border border-[#EAE4DE] bg-white px-5 py-4 text-sm text-[#231C17]/70 shadow-sm">
-                <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#E8722A]">VidyaSaathi</div>
+              <div className="max-w-[22rem] rounded-[1.75rem] border border-border bg-card px-5 py-4 text-sm text-muted-foreground shadow-sm">
+                <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">VidyaSaathi</div>
                 <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-[#E8722A]" />
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   Thinking...
                 </div>
               </div>
@@ -81,7 +81,7 @@ export default function ChatContainer({
           <Button
             type="button"
             onClick={onJumpToLatest}
-            className="pointer-events-auto h-10 rounded-full border border-[#EAE4DE] bg-white px-4 text-[#231C17] shadow-sm hover:bg-[#FFF0E5] hover:text-[#E8722A]"
+            className="pointer-events-auto h-10 rounded-full border border-border bg-card px-4 text-foreground shadow-sm hover:bg-accent hover:text-primary"
           >
             Jump to latest
           </Button>

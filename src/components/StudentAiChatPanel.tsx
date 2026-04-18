@@ -583,12 +583,11 @@ export default function StudentAiChatPanel({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="overflow-hidden rounded-3xl border border-[#EAE4DE] p-4 md:p-6"
-      style={{ background: "linear-gradient(180deg, #FFFFFF, #FFF9F5)", boxShadow: "0 4px 24px -6px rgba(30,20,12,0.08)" }}
+      className="overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card to-accent/20 p-4 shadow-card md:p-6"
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="max-w-3xl">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#E8722A]/20 bg-[#FFF0E5] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-[#E8722A]">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-primary">
             <Sparkles className="h-3.5 w-3.5" />
             VidyaSaathi
           </div>
@@ -597,15 +596,15 @@ export default function StudentAiChatPanel({
               <Bot className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-display font-semibold text-[#231C17]">VidyaSaathi</h2>
-              <p className="mt-1 text-sm leading-6 text-[#7A716A]">
+              <h2 className="text-2xl font-display font-semibold text-foreground">VidyaSaathi</h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Smooth math rendering, clean scrolling chat, voice input, file upload, and simple local chat history.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#EAE4DE] bg-[#F3EDE7] px-4 py-3 text-sm font-medium text-[#231C17]/70">
+        <div className="rounded-2xl border border-border bg-muted/70 px-4 py-3 text-sm font-medium text-muted-foreground">
           {testTitle || "Practice Test"} • {questions.length} questions
         </div>
       </div>
@@ -616,8 +615,8 @@ export default function StudentAiChatPanel({
             key={suggestion}
             type="button"
             className={cn(
-              "h-auto rounded-full border border-[#EAE4DE] bg-[#F3EDE7]/60 px-4 py-2 text-left text-xs leading-5 text-[#231C17]/70 transition-colors",
-              "hover:border-[#E8722A]/30 hover:bg-[#FFF0E5] hover:text-[#E8722A] disabled:opacity-50",
+              "h-auto rounded-full border border-border bg-background/70 px-4 py-2 text-left text-xs leading-5 text-foreground/80 transition-colors",
+              "hover:border-primary/30 hover:bg-accent hover:text-accent-foreground disabled:opacity-50",
             )}
             onClick={() => void sendMessage(suggestion)}
             disabled={submitting || chatbotDisabled}
@@ -628,7 +627,7 @@ export default function StudentAiChatPanel({
       </div>
 
       {chatbotDisabled ? (
-        <div className="mt-4 rounded-2xl border border-[#E8722A]/30 bg-[#FFF0E5] px-4 py-3 text-sm text-[#9A5A2A]">
+        <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700 dark:border-orange-900/40 dark:bg-orange-950/30 dark:text-orange-200">
           {chatbotDisabledReason}
         </div>
       ) : null}
@@ -641,10 +640,10 @@ export default function StudentAiChatPanel({
           onSelectSession={openSession}
         />
 
-        <div className="min-w-0 rounded-3xl border border-[#EAE4DE] bg-white/60 p-3 sm:p-4">
+        <div className="min-w-0 rounded-3xl border border-border bg-background/60 p-3 sm:p-4">
           <div className="mb-3 px-2">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7A716A]/60">Conversation</div>
-            <h3 className="mt-2 text-xl font-display font-semibold text-[#231C17]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground/70">Conversation</div>
+            <h3 className="mt-2 text-xl font-display font-semibold text-foreground">
               {sessionId ? "Continue your chat" : "Start a new chat"}
             </h3>
           </div>

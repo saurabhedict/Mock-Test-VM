@@ -20,17 +20,17 @@ const AttachmentPreview = ({ attachment }: { attachment: ChatAttachment }) => {
   const isImage = attachment.kind === "image" && attachment.previewUrl;
 
   return (
-    <div className="rounded-2xl border border-[#EAE4DE] bg-[#FAF5F0] p-3">
+    <div className="rounded-2xl border border-border bg-muted/60 p-3">
       {isImage ? (
         <img
           src={attachment.previewUrl}
           alt={attachment.name}
-          className="mb-3 h-36 w-full rounded-2xl border border-[#EAE4DE] object-cover"
+          className="mb-3 h-36 w-full rounded-2xl border border-border object-cover"
         />
       ) : null}
 
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-[#E8722A]">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-background text-primary">
           {attachment.kind === "image" ? (
             <FileImage className="h-4 w-4" />
           ) : attachment.kind === "pdf" ? (
@@ -40,12 +40,12 @@ const AttachmentPreview = ({ attachment }: { attachment: ChatAttachment }) => {
           )}
         </div>
         <div className="min-w-0">
-          <div className="truncate text-xs font-semibold text-[#231C17]">{attachment.name}</div>
-          <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-[#7A716A]/60">
+          <div className="truncate text-xs font-semibold text-foreground">{attachment.name}</div>
+          <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
             {attachment.kind} {formatFileSize(attachment.size)}
           </div>
           {attachment.extractedText ? (
-            <p className="mt-2 line-clamp-3 text-xs leading-5 text-[#7A716A]">{attachment.extractedText}</p>
+            <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">{attachment.extractedText}</p>
           ) : null}
         </div>
       </div>
@@ -75,8 +75,8 @@ function MessageBubble({ message }: MessageBubbleProps) {
         className={cn(
           "group min-w-0 rounded-[1.75rem] border px-4 py-3 sm:px-5",
           isAssistant
-            ? "max-w-[85%] border-[#EAE4DE] bg-white text-[#231C17] shadow-sm md:max-w-[65%]"
-            : "max-w-[85%] border-[#E8722A]/20 bg-[#FFF0E5] text-[#231C17] md:max-w-[65%]",
+            ? "max-w-[85%] border-border bg-card text-foreground shadow-sm md:max-w-[65%]"
+            : "max-w-[85%] border-primary/20 bg-accent/70 text-foreground md:max-w-[65%]",
         )}
       >
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -84,7 +84,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
             <div
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-2xl",
-                isAssistant ? "bg-[#FFF0E5] text-[#E8722A]" : "bg-white text-[#231C17]",
+                isAssistant ? "bg-accent text-primary" : "bg-background text-foreground",
               )}
             >
               {isAssistant ? <Bot className="h-4 w-4" /> : <User2 className="h-4 w-4" />}
@@ -93,13 +93,13 @@ function MessageBubble({ message }: MessageBubbleProps) {
               <div
                 className={cn(
                   "text-[10px] font-semibold uppercase tracking-[0.22em]",
-                  isAssistant ? "text-[#E8722A]" : "text-[#231C17]/45",
+                  isAssistant ? "text-primary" : "text-foreground/60",
                 )}
               >
                 {isAssistant ? "VidyaSaathi" : "You"}
               </div>
               {message.createdAt ? (
-                <div className="text-[11px] text-[#7A716A]/70">
+                <div className="text-[11px] text-muted-foreground/80">
                   {new Date(message.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                 </div>
               ) : null}
@@ -110,9 +110,9 @@ function MessageBubble({ message }: MessageBubbleProps) {
             <button
               type="button"
               onClick={() => void handleCopy()}
-              className="inline-flex h-9 items-center gap-2 rounded-2xl border border-transparent px-3 text-xs font-medium text-[#7A716A] transition hover:border-[#EAE4DE] hover:bg-[#FAF5F0] hover:text-[#231C17]"
+              className="inline-flex h-9 items-center gap-2 rounded-2xl border border-transparent px-3 text-xs font-medium text-muted-foreground transition hover:border-border hover:bg-muted hover:text-foreground"
             >
-              {copied ? <Check className="h-4 w-4 text-[#E8722A]" /> : <Copy className="h-4 w-4" />}
+              {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
               {copied ? "Copied" : "Copy"}
             </button>
           ) : null}
