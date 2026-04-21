@@ -1,12 +1,23 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const { VALIDITY_MODES, VALIDITY_UNITS } = require("../utils/planValidity");
+const PASSWORD_POLICY_MESSAGE = "Password must be at least 8 characters and include at least one uppercase letter, one number, and one special character";
+const isStrongPassword = (password) => /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password);
 
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: [true, "Name is required"], trim: true },
     email: { type: String, required: [true, "Email is required"], unique: true, lowercase: true, trim: true, match: [/^\S+@\S+\.\S+$/, "Please provide a valid email"] },
-    password: { type: String, required: [true, "Password is required"], minlength: [6, "Password must be at least 6 characters"], select: false },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: [8, "Password must be at least 8 characters"],
+      validate: {
+        validator: isStrongPassword,
+        message: PASSWORD_POLICY_MESSAGE,
+      },
+      select: false,
+    },
     phone: { type: String, trim: true },
     examPref: { type: String, trim: true, default: "" },
     profilePhoto: { type: String, default: "" },

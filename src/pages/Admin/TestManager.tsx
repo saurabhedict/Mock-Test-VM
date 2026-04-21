@@ -74,6 +74,7 @@ const TestManager = () => {
   const [loading, setLoading] = useState(true);
   const [savingExam, setSavingExam] = useState(false);
   const [savingAvailabilityExamId, setSavingAvailabilityExamId] = useState<string | null>(null);
+  const [savingPublishExamId, setSavingPublishExamId] = useState<string | null>(null);
   const [editingTest, setEditingTest] = useState<Test | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingShuffleQuestions, setEditingShuffleQuestions] = useState(false);
@@ -284,6 +285,20 @@ const TestManager = () => {
       toast({ title: "Exam deleted successfully" });
     } catch (error: any) {
       toast({ title: error?.response?.data?.msg || "Failed to delete exam", variant: "destructive" });
+    }
+  };
+
+  const toggleExamPublish = async (exam: DynamicExam) => {
+    const nextIsActive = exam.isActive === false;
+    setSavingPublishExamId(exam._id);
+    try {
+      const { data } = await api.put(`/admin/exams/${exam._id}/publish`, { isActive: nextIsActive });
+      setExams((current) => current.map((item) => (item._id === exam._id ? data : item)));
+      toast({ title: nextIsActive ? "Exam published" : "Exam unpublished" });
+    } catch (error: any) {
+      toast({ title: error?.response?.data?.msg || "Failed to update exam publish status", variant: "destructive" });
+    } finally {
+      setSavingPublishExamId(null);
     }
   };
 
@@ -614,13 +629,24 @@ const TestManager = () => {
           </div>
 
           <div className="space-y-3">
-            {exams.length > 0 ? exams.map((exam) => (
+            {exams.length > 0 ? exams.map((exam) => {
+              const isPublished = exam.isActive !== false;
+              return (
               <div key={exam._id} className="rounded-xl border bg-card p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xl">{exam.icon}</span>
                     <span className="font-semibold">{exam.shortName}</span>
                     <span className="text-xs text-muted-foreground">({exam.examId})</span>
+                    {isPublished ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-green-600 dark:text-green-400">
+                        <CheckCircle2 className="h-3 w-3" /> Published
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <XCircle className="h-3 w-3" /> Unpublished
+                      </span>
+                    )}
                     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${getExamAvailabilityBadgeClass(exam.availabilityStatus)}`}>
                       {getExamAvailabilityLabel(exam.availabilityStatus)}
                     </span>
@@ -653,6 +679,15 @@ const TestManager = () => {
                     </SelectContent>
                   </Select>
                   <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={isPublished ? "outline" : "default"}
+                      size="sm"
+                      onClick={() => void toggleExamPublish(exam)}
+                      disabled={savingPublishExamId === exam._id}
+                    >
+                      {savingPublishExamId === exam._id ? "Saving..." : isPublished ? "Unpublish" : "Publish"}
+                    </Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => handleEditExam(exam)}>
                       <Pencil className="mr-2 h-4 w-4" /> Edit
                     </Button>
@@ -662,7 +697,8 @@ const TestManager = () => {
                   </div>
                 </div>
               </div>
-            )) : (
+              );
+            }) : (
               <div className="text-sm text-muted-foreground">No custom exam blueprints created yet.</div>
             )}
           </div>

@@ -8,6 +8,9 @@ import Header from "@/components/Header";
 import { useAuth } from "@/context/AuthContext";
 import PhoneInput from "@/components/PhoneInput";
 import { useExams } from "@/hooks/useExams";
+import PasswordStrengthChecklist from "@/components/PasswordStrengthChecklist";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/passwordPolicy";
+import { INDIAN_PHONE_MESSAGE, normalizeIndianPhone } from "@/lib/phonePolicy";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -107,11 +110,14 @@ export function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
-    if (otpMethod === "sms" && !form.phone) { toast.error("Phone number is required for SMS OTP"); return; }
+    if (!form.examPref) { toast.error("Exam preference is required"); return; }
+    if (!isStrongPassword(form.password)) { toast.error(PASSWORD_POLICY_MESSAGE); return; }
+    if (!form.phone) { toast.error("Phone number is required"); return; }
+    const normalizedPhone = normalizeIndianPhone(form.phone);
+    if (!normalizedPhone) { toast.error(INDIAN_PHONE_MESSAGE); return; }
     setIsLoading(true);
     try {
-      const { email } = await register({ ...form, otpMethod });
+      const { email } = await register({ ...form, phone: normalizedPhone, otpMethod });
       toast.success(otpMethod === "sms" ? "OTP sent to your phone!" : "OTP sent to your email!");
       navigate("/verify-otp", { state: { email, otpMethod } });
     } catch (err: unknown) {
@@ -141,7 +147,7 @@ export function RegisterPage() {
             </div>
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Password (min 6 characters)" type={showPassword ? "text" : "password"}
+              <Input placeholder="Password (min 8, uppercase, number, special char)" type={showPassword ? "text" : "password"}
                 className="pl-10 pr-10" value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })} required disabled={isLoading} />
               <button type="button" className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
@@ -149,12 +155,13 @@ export function RegisterPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            <PasswordStrengthChecklist password={form.password} />
 
             <PhoneInput
               value={form.phone}
               onChange={(fullNumber) => setForm({ ...form, phone: fullNumber })}
-              placeholder={otpMethod === "sms" ? "Phone Number (required for SMS)" : "Phone Number (optional)"}
-              required={otpMethod === "sms"}
+              placeholder="Phone Number (Indian)"
+              required
               disabled={isLoading}
             />
 
@@ -165,9 +172,10 @@ export function RegisterPage() {
                 className="w-full rounded-lg border border-input bg-background pl-10 pr-4 py-2 text-sm text-foreground"
                 value={form.examPref}
                 onChange={(e) => setForm({ ...form, examPref: e.target.value })}
+                required
                 disabled={isLoading}
               >
-                <option value="">Select Exam Preference</option>
+                <option value="" disabled>Select Exam Preference</option>
                 {examsLoading ? (
                   <option value="" disabled>Loading exams...</option>
                 ) : (
