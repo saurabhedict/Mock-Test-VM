@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import api from '@/services/api';
 import { isAnswered, isSameSubject, type AnswerValue, type ExamSubjectMarkingRule, type MultipleCorrectScoringMode } from '@/lib/scoring';
+import { calculateInstructionTotalMarks } from '@/lib/testInstructionMarks';
 import {
   buildOriginalAnswersPayload,
   buildOriginalQuestionTimesPayload,
@@ -368,6 +369,9 @@ export default function TestInterfacePage() {
 
       try {
         const { data } = await api.get(`/tests/${testId}`);
+        const examSubjects: ExamSubjectMarkingRule[] = Array.isArray(data?.examDetails?.subjects)
+          ? data.examDetails.subjects
+          : [];
         const flatQuestions = Array.isArray(data?.questions)
           ? data.questions.filter((question: unknown) => Boolean(question && typeof question === 'object'))
           : [];
@@ -384,8 +388,8 @@ export default function TestInterfacePage() {
           subject: q.subject,
           explanation: q.explanation || '',
           explanationImage: q.explanationImage,
-          marksPerQuestion: q.marksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.marksPerQuestion) ?? 1,
-          negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (data.examDetails?.subjects?.find((subject: any) => isSameSubject(subject.name, q.subject))?.negativeMarksPerQuestion) ?? 0,
+          marksPerQuestion: q.marksPerQuestion ?? (examSubjects.find((subject) => isSameSubject(subject.name, q.subject))?.marksPerQuestion) ?? 1,
+          negativeMarksPerQuestion: q.negativeMarksPerQuestion ?? (examSubjects.find((subject) => isSameSubject(subject.name, q.subject))?.negativeMarksPerQuestion) ?? 0,
           multipleCorrectScoringMode: q.multipleCorrectScoringMode || 'full_only',
         })).filter((question) => Boolean(question.id && (question.question || question.questionImage || question.options?.length)));
 
@@ -395,9 +399,9 @@ export default function TestInterfacePage() {
           return;
         }
 
-        // Compute totalMarks dynamically from actual questions so it stays accurate
-        // even when questions have been added/removed after the test was created.
-        const computedTotalMarks = rawQuestions.reduce((sum, q) => sum + (q.marksPerQuestion ?? 1), 0);
+        // Keep instructions aligned with the exam blueprint's subject marking rules
+        // while still using the live question count after adds/removals.
+        const computedTotalMarks = calculateInstructionTotalMarks(rawQuestions, examSubjects);
 
         const randomizationConfig: TestRandomizationConfig = {
           // Keep test flow normal and deterministic.
@@ -424,7 +428,7 @@ export default function TestInterfacePage() {
           testName: data.title,
           duration: data.durationMinutes,
           totalMarks: computedTotalMarks || data.totalMarks,
-          subjects: data.examDetails?.subjects || [],
+          subjects: examSubjects,
           shuffleQuestions: false,
           shuffleOptions: false,
         };
