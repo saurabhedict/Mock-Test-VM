@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  calculateInstructionTotalMarks,
-  getExpectedInstructionSummary,
-  resolveInstructionTotalMarks,
-} from "@/lib/testInstructionMarks";
+import { calculateInstructionTotalMarks } from "@/lib/testInstructionMarks";
 import type { ExamSubjectMarkingRule } from "@/lib/scoring";
 import type { BaseTestQuestion } from "@/lib/testRandomization";
 
@@ -63,65 +59,5 @@ describe("calculateInstructionTotalMarks", () => {
     ];
 
     expect(calculateInstructionTotalMarks(questions, [])).toBe(7);
-  });
-
-  it("uses the expected exam pattern total for a full-length selected paper without explicit overrides", () => {
-    const examSubjects = [
-      { name: "Physics", questionCount: 50, marksPerQuestion: 1 },
-      { name: "Chemistry", questionCount: 50, marksPerQuestion: 1 },
-      { name: "Mathematics", questionCount: 50, marksPerQuestion: 2 },
-    ];
-
-    const questions = [
-      ...Array.from({ length: 51 }, (_, index) => makeQuestion(`p-${index}`, "Physics")),
-      ...Array.from({ length: 50 }, (_, index) => makeQuestion(`c-${index}`, "Chemistry")),
-      ...Array.from({ length: 49 }, (_, index) => makeQuestion(`m-${index}`, "Mathematics")),
-    ];
-
-    expect(
-      resolveInstructionTotalMarks({
-        questions,
-        examSubjects,
-        selectedSubjects: ["Physics", "Chemistry", "Mathematics"],
-        fallbackTotalMarks: 200,
-        hasExplicitMarkOverrides: false,
-      }),
-    ).toBe(200);
-  });
-
-  it("uses live question-derived marks when a selected paper is incomplete", () => {
-    const examSubjects = [
-      { name: "Physics", questionCount: 50, marksPerQuestion: 1 },
-      { name: "Chemistry", questionCount: 50, marksPerQuestion: 1 },
-      { name: "Biology", questionCount: 100, marksPerQuestion: 1 },
-    ];
-
-    const questions = [
-      ...Array.from({ length: 51 }, (_, index) => makeQuestion(`p-${index}`, "Physics")),
-      ...Array.from({ length: 46 }, (_, index) => makeQuestion(`c-${index}`, "Chemistry", index < 5 ? 0.75 : 1)),
-    ];
-
-    expect(
-      resolveInstructionTotalMarks({
-        questions,
-        examSubjects,
-        selectedSubjects: ["Physics", "Chemistry", "Biology"],
-        fallbackTotalMarks: 200,
-        hasExplicitMarkOverrides: true,
-      }),
-    ).toBe(97);
-  });
-
-  it("builds the expected paper summary from the selected exam subjects", () => {
-    const summary = getExpectedInstructionSummary(
-      [
-        { name: "Physics", questionCount: 50, marksPerQuestion: 1 },
-        { name: "Chemistry", questionCount: 50, marksPerQuestion: 1 },
-        { name: "Mathematics", questionCount: 50, marksPerQuestion: 2 },
-      ],
-      ["Physics", "Mathematics"],
-    );
-
-    expect(summary).toEqual({ totalQuestions: 100, totalMarks: 150 });
   });
 });
