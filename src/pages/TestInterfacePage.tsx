@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import api from '@/services/api';
 import { isAnswered, isSameSubject, type AnswerValue, type ExamSubjectMarkingRule, type MultipleCorrectScoringMode } from '@/lib/scoring';
-import { calculateInstructionTotalMarks } from '@/lib/testInstructionMarks';
+import { resolveInstructionTotalMarks } from '@/lib/testInstructionMarks';
 import {
   buildOriginalAnswersPayload,
   buildOriginalQuestionTimesPayload,
@@ -372,6 +372,9 @@ export default function TestInterfacePage() {
         const examSubjects: ExamSubjectMarkingRule[] = Array.isArray(data?.examDetails?.subjects)
           ? data.examDetails.subjects
           : [];
+        const selectedSubjects = Array.isArray(data?.subjects) && data.subjects.length
+          ? data.subjects
+          : (typeof data?.subject === 'string' && data.subject.trim() ? [data.subject] : []);
         const flatQuestions = Array.isArray(data?.questions)
           ? data.questions.filter((question: unknown) => Boolean(question && typeof question === 'object'))
           : [];
@@ -399,9 +402,22 @@ export default function TestInterfacePage() {
           return;
         }
 
-        // Keep instructions aligned with the exam blueprint's subject marking rules
-        // while still using the live question count after adds/removals.
-        const computedTotalMarks = calculateInstructionTotalMarks(rawQuestions, examSubjects);
+        const hasExplicitMarkOverrides = flatQuestions.some((question: any) => {
+          if (question?.marksPerQuestion === undefined || question?.marksPerQuestion === null || question?.marksPerQuestion === '') {
+            return false;
+          }
+          return Number.isFinite(Number(question.marksPerQuestion));
+        });
+
+        // Use the expected paper pattern when the full selected test is present,
+        // but fall back to live question-derived totals for incomplete/custom sets.
+        const computedTotalMarks = resolveInstructionTotalMarks({
+          questions: rawQuestions,
+          examSubjects,
+          selectedSubjects,
+          fallbackTotalMarks: Number(data?.totalMarks || 0),
+          hasExplicitMarkOverrides,
+        });
 
         const randomizationConfig: TestRandomizationConfig = {
           // Keep test flow normal and deterministic.
