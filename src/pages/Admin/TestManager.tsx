@@ -632,8 +632,8 @@ const TestManager = () => {
             {exams.length > 0 ? exams.map((exam) => {
               const isPublished = exam.isActive !== false;
               return (
-              <div key={exam._id} className="rounded-xl border bg-card p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="space-y-1">
+              <div key={exam._id} className="flex flex-col gap-3 rounded-xl border bg-card p-4 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xl">{exam.icon}</span>
                     <span className="font-semibold">{exam.shortName}</span>
@@ -651,7 +651,7 @@ const TestManager = () => {
                       {getExamAvailabilityLabel(exam.availabilityStatus)}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{exam.description || exam.examName}</p>
+                  <p className="break-words text-sm text-muted-foreground">{exam.description || exam.examName}</p>
                   <div className="text-xs text-muted-foreground">
                     {exam.durationMinutes} min • {exam.totalQuestions} questions • {exam.totalMarks} marks • {exam.subjects.length} subjects
                   </div>
@@ -661,13 +661,13 @@ const TestManager = () => {
                       : "No negative marking"}
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 md:min-w-[230px]">
+                <div className="flex w-full flex-col gap-2 md:w-[320px] md:max-w-full md:flex-none">
                   <Select
                     value={normalizeExamAvailabilityStatus(exam.availabilityStatus)}
                     onValueChange={(value) => void updateExamAvailability(exam, normalizeExamAvailabilityStatus(value))}
                     disabled={savingAvailabilityExamId === exam._id}
                   >
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue placeholder="Student availability" />
                     </SelectTrigger>
                     <SelectContent>
@@ -678,20 +678,21 @@ const TestManager = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <Button
                       type="button"
                       variant={isPublished ? "outline" : "default"}
                       size="sm"
+                      className="w-full"
                       onClick={() => void toggleExamPublish(exam)}
                       disabled={savingPublishExamId === exam._id}
                     >
                       {savingPublishExamId === exam._id ? "Saving..." : isPublished ? "Unpublish" : "Publish"}
                     </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleEditExam(exam)}>
+                    <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => handleEditExam(exam)}>
                       <Pencil className="mr-2 h-4 w-4" /> Edit
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-red-600" onClick={() => handleDeleteExam(exam)}>
+                    <Button type="button" variant="ghost" size="sm" className="w-full text-destructive hover:text-red-600" onClick={() => handleDeleteExam(exam)}>
                       <Trash className="mr-2 h-4 w-4" /> Delete
                     </Button>
                   </div>
